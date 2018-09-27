@@ -601,10 +601,23 @@ void forCleanup(void *ptr)
     static int size = 1;
     static void **root = 0;
 
-    if ( NULL == root)
-        root = calloc(sizeof(void *), 1);
+    if (NULL == root)
+        root = malloc(sizeof(void *));
 
-    if( NULL == ptr)
+    if (NULL == ptr)
+    {
         return;
+    }
+    else
+    {
+        void **tmp = root;
+        root = realloc(tmp, sizeof(void*) * (size + 1));
+
+        if (NULL == root)
+            pexit("forCleanup");
+
+        root[size] = 0;
+        root[size - 1] = ptr;
+    }
 }
 

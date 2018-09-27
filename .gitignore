@@ -1,2 +1,5 @@
-# This project is very small so it's best to ignore everything
 *
+!include/
+!src/
+!include/*
+!src/*
