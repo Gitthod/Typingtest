@@ -1,9 +1,11 @@
 #include "speed_test_sqlite.h"
 #include "raw_term.h"
 
+/* Static functions. */
+static void deinitSQLite(void);
+
+/* Static variables. */
 static termAttributes *sh_Attrs;
-
-
 static sqlite3 *db;
 
 /*
@@ -63,11 +65,16 @@ int init_sqlite_db(void)
 
             return 1;
         }
+            sqlite3_free(err_msg);
     }
-
+    atexit(deinitSQLite);
     return 0;
 }
 
+static void deinitSQLite(void)
+{
+    sqlite3_close(db);
+}
 int callback(void *NotUsed, int argc, char **argv, char **azColName)
 {
     NotUsed = 0;

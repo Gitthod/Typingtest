@@ -596,3 +596,15 @@ char *fileToBuffer(char *filename)
     return string;
 }
 
+void forCleanup(void *ptr)
+{
+    static int size = 1;
+    static void **root = 0;
+
+    if ( NULL == root)
+        root = calloc(sizeof(void *), 1);
+
+    if( NULL == ptr)
+        return;
+}
+

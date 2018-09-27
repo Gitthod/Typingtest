@@ -129,9 +129,12 @@ static void disableRawMode(void)
     pthread_join(refreshScreen, NULL);
     write(STDOUT_FILENO,"\x1b[H\x1b[J", 6);
     printf("%s\r", error_messages);
+    delRows(0);
+    free(E.row);
 
     if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &E.orig_termios) == -1)
         pexit("tcsetattr");
+
 }
 
 
