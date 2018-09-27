@@ -30,7 +30,12 @@ static char *buffer = NULL;
 static char *test_name = NULL;
 static termAttributes *sh_Attrs;
 
+/* This is keeps track of pointers that need to freed. */
+static void **root = 0;
+
 /* Function declarations */
+void freeAll(void);
+void forCleanup(void *ptr);
 void typingTest(void);
 int checkValidKey(char c, char *idx, char** ptr);
 int convertInput(char* input);
@@ -44,6 +49,9 @@ char *fileToBuffer(char *filename);
 
 int main(int argc, char** argv)
 {
+    /* This function was created to avoid valgrind memory leaks. */
+    atexit(freeAll);
+
     enableRawMode();
     sh_Attrs = initShellAttributes();
 
@@ -92,7 +100,7 @@ void typingTest(void)
     float cpm = 0;
 
     asprintf(&test_message, "Type as fast as you can %u letters:\n", G_Test_Length);
-
+    forCleanup(test_message);
     dumpRows(test_message, 0, sh_Attrs->numrows);
     int test_offset = sh_Attrs->numrows;
 
@@ -175,7 +183,6 @@ START:
                     delRows(test_offset);
                     dumpRows("Exiting test...", 0, sh_Attrs->numrows);
                     sleep(1);
-                    free(test_message);
                     return;
                 }
             }
@@ -205,8 +212,6 @@ START:
             repeat = 0;
 
     } while (repeat);
-
-    free(test_message);
 }
 
 /* Make it work with scrolling maybe calculate the availabe screen and split it in two
@@ -223,6 +228,7 @@ void custom_test(char *test, char *test_name)
     int size_read = 0;
     int reset_size;
     size_read = dumpRows(test_message, 4, sh_Attrs->numrows);
+    forCleanup(test_message);
     reset_size = size_read;
 
     dumpRows("\n**************************************************\n\n", 0, sh_Attrs->numrows);
@@ -251,7 +257,6 @@ START:
             {
                 delRows(test_offset);
                 dumpRows("Exiting test...", 0, sh_Attrs->numrows);
-                free(test_message);
                 sleep(1);
                 return;
             }
@@ -356,8 +361,6 @@ START:
             repeat = 0;
 
     } while (repeat);
-
-    free(test_message);
 }
 
 int checkValidKey(char c, char *idx, char** ptr)
@@ -592,17 +595,18 @@ char *fileToBuffer(char *filename)
     char *string = (char *)malloc(fsize + 1);
     fread(string, fsize, 1, f);
     string[fsize] = 0;
+    forCleanup(string);
     fclose(f);
     return string;
 }
 
 void forCleanup(void *ptr)
 {
+    /* The array needs at least one NULL pointer. */
     static int size = 1;
-    static void **root = 0;
 
     if (NULL == root)
-        root = malloc(sizeof(void *));
+        root = calloc(sizeof(void *), 1);
 
     if (NULL == ptr)
     {
@@ -610,14 +614,29 @@ void forCleanup(void *ptr)
     }
     else
     {
-        void **tmp = root;
-        root = realloc(tmp, sizeof(void*) * (size + 1));
+        /* Check if the pointer is already registered. */
+        for(int i = 0; i < size; i++)
+            if (root[i] == ptr)
+                return;
+
+        root = realloc(root, sizeof(void*) * (size + 1));
 
         if (NULL == root)
             pexit("forCleanup");
 
         root[size] = 0;
-        root[size - 1] = ptr;
+        root[size++ - 1] = ptr;
     }
 }
 
+void freeAll(void)
+{
+    void **start = root;
+
+    while(*root)
+    {
+        free(*root++);
+    }
+
+    free(start);
+}

@@ -1,5 +1,11 @@
+# Ignore everything
 *
+
+# Unignore the contents of the following folders
 !include/
 !src/
 !include/*
 !src/*
+
+# Ignore again swap files.
+*.sw[op]
