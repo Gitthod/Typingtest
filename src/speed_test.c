@@ -1,18 +1,5 @@
-#define _GNU_SOURCE
+#include <speed_test.h>
 
-#include <stdio.h>
-#include <sys/time.h>
-#include <termios.h>            //termios, TCSANOW, ECHO, ICANON
-#include <unistd.h>             //STDIN_FILENO
-#include <string.h>
-#include <sqlite3.h>
-#include "speed_test_sqlite.h"
-#include <sys/ioctl.h>
-#include <ctype.h>
-#include <time.h>
-#include "raw_term.h"
-
-#define DEFAULT 100
 #define NUM_ROWS 6
 #define CTRL_KEY(k) ((k) & 0x1f)
 
@@ -34,58 +21,16 @@ static termAttributes *sh_Attrs;
 static void **root = 0;
 
 /* Function declarations */
-void freeAll(void);
-void forCleanup(void *ptr);
-void typingTest(void);
-int checkValidKey(char c, char *idx, char** ptr);
-int convertInput(char* input);
-int goto_Menu(void);
-char *getListFromId(char *id);
-int l_getchar(void);
-int notValidChar(char c, char *id);
-void browse_DB(void);
-void custom_test(char *test, char *test_name);
-char *fileToBuffer(char *filename);
+static int checkValidKey(char c, char *idx, char** ptr);
+static char *getListFromId(char *id);
+static int l_getchar(void);
+static int notValidChar(char c, char *id);
+static void browse_DB(void);
+static void custom_test(char *test, char *test_name);
+static void typingTest(void);
 
-int main(int argc, char** argv)
-{
-    /* This function was created to avoid valgrind memory leaks. */
-    atexit(freeAll);
 
-    enableRawMode();
-    sh_Attrs = initShellAttributes();
-
-    if (argc > 3)
-    {
-        pexit("The program needs at most two arguments, exiting...\n");
-    }
-    else if (argc == 2)
-    {
-        G_Test_Length = convertInput(argv[1]);
-        if (G_Test_Length < 0)
-        {
-            pexit("The correct format is: <prog> <filename> <name_of_test> or <prog> <number>\n");
-        }
-    }
-    else if (argc == 1)
-    {
-        G_Test_Length = DEFAULT;
-    }
-    else
-    {
-        buffer = fileToBuffer(argv[1]);
-        test_name = argv[2];
-        G_Test_Length = DEFAULT;
-    }
-
-    init_sqlite_db();
-
-    while (goto_Menu());
-
-    return 0;
-}
-
-void typingTest(void)
+static void typingTest(void)
 {
     char c;
     /* Ptr to the character in character tuple to be tested */
@@ -216,7 +161,7 @@ START:
 
 /* Make it work with scrolling maybe calculate the availabe screen and split it in two
    or work with the highlighted word*/
-void custom_test(char *test, char *test_name)
+static void custom_test(char *test, char *test_name)
 {
     char c;
     struct timeval end, start, result;
@@ -363,7 +308,7 @@ START:
     } while (repeat);
 }
 
-int checkValidKey(char c, char *idx, char** ptr)
+static int checkValidKey(char c, char *idx, char** ptr)
 {
     for(int i = 0; i < sizeof(Global_Ar) / sizeof(Global_Ar[0]); i++)
         for(int j = 0; j < 2; j++)
@@ -392,7 +337,7 @@ int convertInput(char* input)
     return result;
 }
 
-int l_getchar(void)
+static int l_getchar(void)
 {
     int c = getKey();
     if ( c >= 65 && c <= 90)
@@ -418,6 +363,8 @@ int goto_Menu(void)
 
     if (init == 0)
     {
+        enableRawMode();
+        sh_Attrs = initShellAttributes();
         dumpRows(Menu, 0, sh_Attrs->numrows);
         init = 1;
         test_offset = sh_Attrs->numrows;
@@ -453,7 +400,7 @@ int goto_Menu(void)
 
 }
 
-void browse_DB(void)
+static void browse_DB(void)
 {
     int c;
     int stay = 1;
@@ -546,7 +493,7 @@ void browse_DB(void)
 
 }
 
-int notValidChar(char c, char *id)
+static int notValidChar(char c, char *id)
 {
     char *validChars;
     int idx = 0;
@@ -561,7 +508,7 @@ int notValidChar(char c, char *id)
     return 1;
 }
 
-char *getListFromId(char *id)
+static char *getListFromId(char *id)
 {
     static char *list[][2] ={{"DB","123x"},
         {"Menu","\t\rqbc"} };
@@ -582,9 +529,7 @@ char *fileToBuffer(char *filename)
 
     if (f == NULL)
     {
-        char *message = 0;
-        asprintf(&message, "can't open the file %s\r\nexiting....\n", filename);
-        pexit(message);
+        return NULL;
     }
 
     fseek(f, 0, SEEK_END);
@@ -595,8 +540,8 @@ char *fileToBuffer(char *filename)
     char *string = (char *)malloc(fsize + 1);
     fread(string, fsize, 1, f);
     string[fsize] = 0;
-    forCleanup(string);
     fclose(f);
+
     return string;
 }
 
@@ -633,10 +578,27 @@ void freeAll(void)
 {
     void **start = root;
 
-    while(*root)
-    {
-        free(*root++);
-    }
+    if (root)
+        while(*root)
+        {
+            free(*root++);
+        }
 
     free(start);
+}
+
+void setAttributes(int testLength, char *testName, char *fileBuffer)
+{
+    if (testLength)
+        G_Test_Length = testLength;
+
+    if (testName)
+        test_name = testName;
+
+    if (fileBuffer)
+    {
+        buffer = fileBuffer;
+        forCleanup(buffer);
+    }
+
 }

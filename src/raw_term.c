@@ -7,29 +7,99 @@
 #include <stdarg.h>
 #include <ctype.h>
 
+/* Local variables */
+/* Custom struct to control the terminal */
 static termAttributes E;
+/* Thread to refresh periodically the terminal. */
 static pthread_t refreshScreen;
+/* When this is set to 0 the thread that refreshes the screen will exit. */
 static int th_run = 1;
+/* Save some error messages here. */
 static char error_messages[300];
 
+/* Mutex to prevent unsychronized acceses to E static variable*/
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-/* Static functions */
+/* Local functions */
+/*
+ * Frees *tB. Could be replaced by free, it only adds readability.
+ */
 static void tBufFree(tBuf *tB);
+
+/*
+ * Append the string pointed by s to tB.
+ */
 static void tBufAppend(tBuf *tB, const char *s, int len);
+
+/*
+ * Get the current cursor position and save it to rows and cols
+ */
 static int getCursorPosition(int *rows, int *cols);
+
+/*
+ * Translate \t to spaces according to the TAB_STOP length.
+ */
 static int translateTabs(tRow *row, int cx);
+
+/*
+ * Get the current windows size of the terminal and save it to rows and cols.
+ */
 static int getWindowSize(int *rows, int *cols);
+
+/*
+ * Return the terminal to its original settings before enableRawMode().
+ */
 static void disableRawMode(void);
+/*
+ * Readujst the offsets so you can scroll to more rows than your terminal size allows.
+ */
 static void shellScroll(void);
+
+/*
+ * Function that refreshes the terminal with the news rows and status and app message.
+ */
 static void refreshTerminal(void);
+
+/*
+ * Appends every row to the buffer so the can be later written to stdout at once.
+ */
 static void drawRows(tBuf *tB);
+
+/*
+ * Append the status bar to the tB buffer, this will normally be called after drawRows. So it occupies the next line.
+ */
 static void drawStatusBar(tBuf *tB);
+
+/*
+ * Append the app message to the tB buffer, this will normally be called after drawStatusBar. So it occupies the next
+ * line.
+ */
 static void drawAppMessage(tBuf *tb);
+
+/*
+ * Set the status message which is defined in the struct termAttributes to a formatted string.
+ */
 static void setStatusMessage(const char *fmt, ...);
+
+/*
+ * Update the specified row to have its spaces recalculated after tab insertions.
+ */
 static void updateRow(tRow *row);
+
+/*
+ * Free the memory occupied by row.
+ */
 static void freeRow(tRow *row);
+
+/*
+ * Insert a new row with size len from point s, at index line.
+ */
 static void insertRow(int line, char *s, size_t len);
+
+/*
+ * Checks a static variable if it's different than 0 to continue calling refreshTerminal().
+ * This function is run in a separate thread.
+ */
 static void keepRefresing(void);
 
 void pexit(const char *s)
