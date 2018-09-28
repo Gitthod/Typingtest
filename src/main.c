@@ -5,6 +5,7 @@
 #include <raw_term.h>
 #include <speed_test_sqlite.h>
 #include <stdio.h>     // asprintf needs _GNU_SOURCE
+#include <memory.h>
 
 #define DEFAULT_TEST_LENGTH 100
 

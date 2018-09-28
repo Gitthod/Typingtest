@@ -20,9 +20,6 @@ static char *test_name = NULL;
 /* Custom struct to store attributes of the current terminal session. */
 static termAttributes *sh_Attrs;
 
-/* This keeps track of pointers that need to freed. */
-static void **root = 0;
-
 /* Function declarations */
 
 /*
@@ -579,48 +576,6 @@ char *fileToBuffer(char *filename)
     fclose(f);
 
     return string;
-}
-
-void forCleanup(void *ptr)
-{
-    /* The array needs at least one NULL pointer. */
-    static int size = 1;
-
-    if (NULL == root)
-        root = calloc(sizeof(void *), 1);
-
-    if (NULL == ptr)
-    {
-        return;
-    }
-    else
-    {
-        /* Check if the pointer is already registered. */
-        for(int i = 0; i < size; i++)
-            if (root[i] == ptr)
-                return;
-
-        root = realloc(root, sizeof(void*) * (size + 1));
-
-        if (NULL == root)
-            pexit("forCleanup");
-
-        root[size] = 0;
-        root[size++ - 1] = ptr;
-    }
-}
-
-void freeAll(void)
-{
-    void **start = root;
-
-    if (root)
-        while(*root)
-        {
-            free(*root++);
-        }
-
-    free(start);
 }
 
 void setAttributes(int testLength, char *testName, char *fileBuffer)

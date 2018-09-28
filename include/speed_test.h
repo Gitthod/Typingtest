@@ -7,6 +7,7 @@
 #include <speed_test_sqlite.h>
 #include <raw_term.h>
 #include <stdio.h>
+#include <memory.h>
 
 /*
  * Prints the main menu message and handles the user's decisions.
@@ -29,13 +30,4 @@ int convertInput(char* input);
  */
 char *fileToBuffer(char *filename);
 
-/*
- * Frees all the pointers registered with forCleanup function.
- */
-void freeAll(void);
-
-/*
- * Registers the pointer in memory so it can be freed later with freeAll.
- */
-void forCleanup(void *ptr);
 #endif
