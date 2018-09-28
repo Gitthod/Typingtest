@@ -1,9 +1,17 @@
 #ifndef RAW_TERM_H_123
 #define RAW_TERM_H_123
+#define _GNU_SOURCE // This is only defined for asprintf
+
+#include <stdarg.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <errno.h>
 #include <termios.h>
 #include <time.h>
 #include <string.h>
 #include <pthread.h>
+#include <stdio.h>
+#include <ctype.h>
 
 /* Type definitios */
 

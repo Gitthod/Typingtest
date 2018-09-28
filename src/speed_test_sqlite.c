@@ -1,5 +1,4 @@
-#include "speed_test_sqlite.h"
-#include "raw_term.h"
+#include <speed_test_sqlite.h>
 
 /* Static functions. */
 static void deinitSQLite(void);

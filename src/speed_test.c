@@ -1,9 +1,8 @@
 #include <speed_test.h>
 
-#define NUM_ROWS 6
 #define CTRL_KEY(k) ((k) & 0x1f)
 
-/* Global variables */
+/* Static variables */
 static char *Global_Ar[] = {"qw",
     "as",
     "zx",
@@ -12,21 +11,58 @@ static char *Global_Ar[] = {"qw",
     "./"};
 
 
+/* Test length for the 2 fingers test. */
 static int G_Test_Length;
+/* Will point to the converted file to characters */
 static char *buffer = NULL;
+/* Entry name for the sqlite db. */
 static char *test_name = NULL;
+/* Custom struct to store attributes of the current terminal session. */
 static termAttributes *sh_Attrs;
 
-/* This is keeps track of pointers that need to freed. */
+/* This keeps track of pointers that need to freed. */
 static void **root = 0;
 
 /* Function declarations */
+
+/*
+ * Checks whether the character c belongs to Global_Ar, in that case the function returns 1 , *idx contains the
+ * index of char in the static array, and ptr is used to change the value of a char * to show the beginning of that
+ * string.
+ */
 static int checkValidKey(char c, char *idx, char** ptr);
+
+/*
+ * Returns a string containing the possible values for id. This is used to filter the availabe keys for the different
+ * menus (id is the menu's name).
+ */
 static char *getListFromId(char *id);
+
+/*
+ * Uses getchar but converts the char to lower and returns it.
+ */
 static int l_getchar(void);
+
+/*
+ * Check whether char c belongs to the list returned from getListFromId(id).
+ */
 static int notValidChar(char c, char *id);
+
+/*
+ * Menu to perform some sql queries (get best and average times) in the sqlite db.
+ */
 static void browse_DB(void);
+
+/*
+ * test points to the beginning of a converted file into characters, test_name will be used to store the result in
+ * the database.
+ * This function performs this custom typing test.
+ */
 static void custom_test(char *test, char *test_name);
+
+/*
+ * Performs the default 2finger test.
+ */
 static void typingTest(void);
 
 

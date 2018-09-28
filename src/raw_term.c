@@ -1,11 +1,4 @@
-#include <unistd.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include "raw_term.h"
-#include <fcntl.h>
-#include <stdarg.h>
-#include <ctype.h>
+#include <raw_term.h>
 
 /* Local variables */
 /* Custom struct to control the terminal */
