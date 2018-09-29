@@ -9,6 +9,8 @@ static pthread_t refreshScreen;
 static int th_run = 1;
 /* Save some error messages here. */
 static char error_messages[300];
+/* Is 1 if there was some insert or delete operation. Goes to 0 after the screen is updated. */
+static int dirty;
 
 /* Mutex to prevent unsychronized acceses to E static variable*/
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -360,6 +362,7 @@ static void setStatusMessage(const char *fmt, ...)
 
 static void refreshTerminal()
 {
+    dirty = 0;
     shellScroll();
 
     tBuf tB = ABUF_INIT;
@@ -389,6 +392,7 @@ static void refreshTerminal()
 void delRow(int line)
 {
     pthread_mutex_lock(&mutex);
+    dirty = 1;
     if (line < 0 || line >= E.numrows)
     {
         pthread_mutex_unlock(&mutex);
@@ -412,28 +416,8 @@ void delRow(int line)
 
 void delRows(int line)
 {
-    pthread_mutex_lock(&mutex);
-    if (line < 0 || line >= E.numrows)
-    {
-        pthread_mutex_unlock(&mutex);
-        /* Even if the line doesn't exist update the cursor. */
-        E.cy = E.numrows - E.rowoff;
-        E.cx = 0;
-        return;
-    }
-
-    for (int i = line; i < E.numrows; i++)
-        freeRow(&E.row[i]);
-
-    E.numrows = line;
-    if (E.numrows < E.screenrows)
-        E.rowoff = 0;
-    else
-        E.rowoff = E.numrows - E.screenrows;
-
-    E.cy = E.numrows - E.rowoff;
-    E.cx = 0;
-    pthread_mutex_unlock(&mutex);
+    while (line < E.numrows)
+        delRow(line);
 }
 
 static void freeRow(tRow *row)
@@ -497,6 +481,7 @@ void moveCursor(int key)
 
 static void updateRow(tRow *row)
 {
+    dirty = 1;
     int tabs = 0;
     int j;
     for (j = 0; j < row->size; j++)
@@ -793,7 +778,8 @@ static void keepRefresing(void)
     while (th_run)
     {
         pthread_mutex_lock(&mutex);
-        refreshTerminal();
+        if (dirty)
+            refreshTerminal();
         pthread_mutex_unlock(&mutex);
 
         /* Wait two milliseconds to avoid unnecessary load. */
