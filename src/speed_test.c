@@ -109,7 +109,7 @@ START:
             }
         }
 
-        for(int i = 1; i < G_Test_Length + 1; i++)
+        for (int i = 1; i < G_Test_Length + 1; i++)
         {
             int colorCode = 0;
 
@@ -343,8 +343,8 @@ START:
 
 static int checkValidKey(char c, char *idx, char** ptr)
 {
-    for(int i = 0; i < sizeof(Global_Ar) / sizeof(Global_Ar[0]); i++)
-        for(int j = 0; j < 2; j++)
+    for (int i = 0; i < sizeof(Global_Ar) / sizeof(Global_Ar[0]); i++)
+        for (int j = 0; j < 2; j++)
             if (c == Global_Ar[i][j])
             {
                 *idx = j;
@@ -546,7 +546,7 @@ static char *getListFromId(char *id)
     static char *list[][2] ={{"DB","123x"},
         {"Menu","\t\rqbc"} };
 
-    for(int i = 0; i < sizeof(list) / sizeof(list[0]); i++)
+    for (int i = 0; i < sizeof(list) / sizeof(list[0]); i++)
     {
         if (strcmp(list[i][0], id) == 0)
             return list[i][1];

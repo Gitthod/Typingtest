@@ -20,13 +20,13 @@ void forCleanup(void *ptr)
         static int size = 1;
 
         /* Check if the pointer is already registered. */
-        for(int i = 0; i < size; i++)
+        for (int i = 0; i < size; i++)
             if (root[i] == ptr)
                 return;
 
         /* Avoid warning regarding not error handling realloc with some linters. */
         void **tmp = root;
-        root = realloc(root, sizeof(void*) * (size + 1));
+        root = realloc(root, sizeof(void *) * (size + 1));
 
         if (NULL == root)
         {
@@ -44,7 +44,7 @@ void freeAll(void)
     void **start = root;
 
     if (root)
-        while(*root)
+        while (*root)
         {
             free(*root++);
         }

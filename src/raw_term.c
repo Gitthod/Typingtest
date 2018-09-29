@@ -100,7 +100,7 @@ void pexit(const char *s)
     int idx = 0;
     /* Write string to stderr  and also copy to the static array for errors. */
     perror(s);
-    while((error_messages[idx++] = *s++));
+    while ((error_messages[idx++] = *s++));
 
     exit(1);
 }
@@ -305,7 +305,7 @@ static void drawStatusBar(tBuf *tB)
     tBufAppend(tB, "\x1b[7m", 4);
 
     /* Ensure there are no newline characters in the status msg */
-    for(int i = 0; i < sizeof(E.statusmsg); i++)
+    for (int i = 0; i < sizeof(E.statusmsg); i++)
         if (E.statusmsg[i] == '\n')
         {
             E.statusmsg[i] = 0;
@@ -322,7 +322,7 @@ static void drawStatusBar(tBuf *tB)
 static void drawAppMessage(tBuf *tB)
 {
     /* Ensure there are no newline characters in the app msg */
-    for(int i = 0; i < sizeof(E.appmsg); i++)
+    for (int i = 0; i < sizeof(E.appmsg); i++)
         if (E.appmsg[i] == '\n')
         {
             E.appmsg[i] = 0;
@@ -331,7 +331,7 @@ static void drawAppMessage(tBuf *tB)
 
     /* If sizeof is used instead of strlen the message will be merged with previous. */
     tBufAppend(tB, E.appmsg, strlen(E.appmsg));
-    if(E.appmsg[0])
+    if (E.appmsg[0])
         tBufAppend(tB, "\x1b[39m", 5);
     tBufAppend(tB, "\x1b[K", 3);
 }
@@ -595,8 +595,8 @@ int readKey()
 void rowAppendString(tRow *row, char *s, size_t len)
 {
     /*Check len is valid*/
-    for(int i = 0; i < len; i++)
-        if(!s[i])
+    for (int i = 0; i < len; i++)
+        if (!s[i])
             pexit("rowAppendString");
 
     row->chars = (char *)realloc(row->chars, row->size + len + 1);
@@ -696,7 +696,7 @@ void insertRow(int line, char *s, size_t len)
     E.row[line].idx = line;
 
     E.row[line].size = len;
-    E.row[line].chars = (char*)malloc(len + 1);
+    E.row[line].chars = (char *)malloc(len + 1);
     memcpy(E.row[line].chars, s, len);
     E.row[line].chars[len] = '\0';
     E.row[line].rsize = 0;
@@ -722,9 +722,9 @@ int dumpRows(char *string, int maxLines, int line)
     if (line < 0 || line > E.numrows)
         return -1;
 
-    while(string[idx])
+    while (string[idx])
     {
-        if(string[idx] == '\n')
+        if (string[idx] == '\n')
         {
             insertRow(line + rowsCopied++, &string[idx++] - len, len);
             len = 0;
@@ -769,13 +769,13 @@ int dumpRows(char *string, int maxLines, int line)
         }
     }
 
-    if(len)
+    if (len)
     {
         insertRow(line + rowsCopied++, &string[idx] - len, len);
     }
 
     /*This ensures that an exact number of lines will be dumped if the number isn't 0. */
-    for(int i = rowsCopied; i < maxLines; i++, rowsCopied++)
+    for (int i = rowsCopied; i < maxLines; i++, rowsCopied++)
         insertRow(line + i, "", 0);
 
     pthread_mutex_lock(&mutex);
