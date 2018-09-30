@@ -5,6 +5,8 @@
 static termAttributes E;
 /* Thread to refresh periodically the terminal. */
 static pthread_t refreshScreen;
+/* Thread to refresh periodically the status bar. */
+static pthread_t statusBar;
 /* When this is set to 0 the thread that refreshes the screen will exit. */
 static int th_run = 1;
 /* Save some error messages here. */
@@ -186,6 +188,7 @@ static void disableRawMode(void)
 {
     th_run = 0;
     pthread_join(refreshScreen, NULL);
+    pthread_join(statusBar, NULL);
     write(STDOUT_FILENO,"\x1b[H\x1b[J", 6);
     printf("%s\r", error_messages);
     delRows(0);
@@ -214,6 +217,7 @@ void enableRawMode(void)
      * Since we use raw mode we we periodically refresh the screen using a thred
      */
     pthread_create(&refreshScreen, NULL, (void *(*)(void *))keepRefresing, NULL);
+    pthread_create(&statusBar, NULL, (void *(*)(void *))printStatusMessage, NULL);
 
     if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1)
         pexit("tcsetattr");
@@ -567,12 +571,14 @@ int getKey()
         case CTRL_KEY('q'):
             th_run = 0;
             pthread_join(refreshScreen, NULL);
+            pthread_join(statusBar, NULL);
             exit(0);
             break;
 
         case CTRL_KEY('c'):
             th_run = 0;
             pthread_join(refreshScreen, NULL);
+            pthread_join(statusBar, NULL);
             exit(0);
             break;
 
@@ -744,9 +750,6 @@ static void keepRefresing(void)
         if (dirty)
             refreshTerminal();
 
-        /* Always update the time. */
-        printStatusMessage();
-
         pthread_mutex_unlock(&mutex);
 
         /* Wait two milliseconds to avoid unnecessary load. */
@@ -761,28 +764,36 @@ termAttributes * getTermAttributes(void)
 
 static void printStatusMessage(void)
 {
-    /* Hide the cursor. */
-    write(STDOUT_FILENO,"\x1b[?25l", 6);
-    char *message;
-    /* Move the cursor to the line after the test's last row. */
-    asprintf(&message, "\x1b[%d;%dH", E.screenrows + 1, 0);
-    write(STDOUT_FILENO, message, strlen(message));
-    free(message);
+    while (th_run)
+    {
+        /* This thread has to be locked because it changes the cursor position. */
+        pthread_mutex_lock(&mutex);
+        /* Hide the cursor. */
+        write(STDOUT_FILENO,"\x1b[?25l", 6);
+        char *message;
+        /* Move the cursor to the line after the test's last row. */
+        asprintf(&message, "\x1b[%d;%dH", E.screenrows + 1, 0);
+        write(STDOUT_FILENO, message, strlen(message));
+        free(message);
 
-    /* Get the current time and print it in that line. */
-    struct tm * timeinfo;
-    time_t currentTime= time(NULL);
-    timeinfo = localtime (&currentTime);
-    asprintf(&E.statusmsg, "Current time : %s", asctime(timeinfo));
-    asprintf(&message, "\x1b[K%s",E.statusmsg);
-    write(STDOUT_FILENO, message, strlen(message));
-    free(message);
-    free(E.statusmsg);
+        /* Get the current time and print it in that line. */
+        struct tm * timeinfo;
+        time_t currentTime= time(NULL);
+        timeinfo = localtime (&currentTime);
+        asprintf(&E.statusmsg, "Current time : %s", asctime(timeinfo));
+        asprintf(&message, "\x1b[K%s",E.statusmsg);
+        write(STDOUT_FILENO, message, strlen(message));
+        free(message);
+        free(E.statusmsg);
 
-    /* Return the cursor to the original position. */
-    asprintf(&message, "\x1b[%d;%dH",(E.cy - E.rowoff) + 1, (E.rx - E.coloff) + 1);
-    write(STDOUT_FILENO, message, strlen(message));
-    free(message);
-    /* Show the cursor. */
-    write(STDOUT_FILENO,"\x1b[?25h", 6);
+        /* Return the cursor to the original position. */
+        asprintf(&message, "\x1b[%d;%dH",(E.cy - E.rowoff) + 1, (E.rx - E.coloff) + 1);
+        write(STDOUT_FILENO, message, strlen(message));
+        free(message);
+        /* Show the cursor. */
+        write(STDOUT_FILENO,"\x1b[?25h", 6);
+        pthread_mutex_unlock(&mutex);
+
+        usleep(100000);
+    }
 }
