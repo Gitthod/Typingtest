@@ -51,7 +51,7 @@ static void disableRawMode(void);
 static void shellScroll(void);
 
 /*
- * Function that refreshes the terminal with the news rows and status and app message.
+ * Function that refreshes the terminal with the news rows and app message.
  */
 static void refreshTerminal(void);
 
@@ -61,20 +61,15 @@ static void refreshTerminal(void);
 static void drawRows(tBuf *tB);
 
 /*
- * Append the status bar to the tB buffer, this will normally be called after drawRows. So it occupies the next line.
- */
-static void drawStatusBar(tBuf *tB);
-
-/*
  * Append the app message to the tB buffer, this will normally be called after drawStatusBar. So it occupies the next
  * line.
  */
 static void drawAppMessage(tBuf *tb);
 
 /*
- * Set the status message which is defined in the struct termAttributes to a formatted string.
+ * Get the current time and print it in the previous to last row using escape codes.
  */
-static void setStatusMessage(const char *fmt, ...);
+static void printStatusMessage(void);
 
 /*
  * Update the specified row to have its spaces recalculated after tab insertions.
@@ -123,9 +118,8 @@ termAttributes * initShellAttributes(void)
     E.coloff = 0;
     E.numrows = 0;
     E.row = NULL;
-    E.statusmsg[0] = '\0';
+    E.statusmsg = NULL;
     E.appmsg[0] = '\0';
-    E.statusmsg_time = 0;
 
     if (getWindowSize(&E.screenrows, &E.screencols) == -1)
         pexit("getWindowSize");
@@ -302,25 +296,6 @@ static void drawRows(tBuf *tB)
     }
 }
 
-static void drawStatusBar(tBuf *tB)
-{
-    tBufAppend(tB, "\x1b[7m", 4);
-
-    /* Ensure there are no newline characters in the status msg */
-    for (int i = 0; i < sizeof(E.statusmsg); i++)
-        if (E.statusmsg[i] == '\n')
-        {
-            E.statusmsg[i] = 0;
-            break;
-        }
-
-    tBufAppend(tB, E.statusmsg, strlen(E.statusmsg));
-
-    tBufAppend(tB, "\x1b[m", 3);
-    tBufAppend(tB, "\x1b[K", 3);
-    tBufAppend(tB, "\r\n", 2);
-}
-
 static void drawAppMessage(tBuf *tB)
 {
     /* Ensure there are no newline characters in the app msg */
@@ -332,6 +307,8 @@ static void drawAppMessage(tBuf *tB)
         }
 
     /* If sizeof is used instead of strlen the message will be merged with previous. */
+    tBufAppend(tB, "\n", 1);
+
     tBufAppend(tB, E.appmsg, strlen(E.appmsg));
     if (E.appmsg[0])
         tBufAppend(tB, "\x1b[39m", 5);
@@ -348,17 +325,6 @@ void setAppMessage(const char *fmt, ...)
     pthread_mutex_unlock(&mutex);
 }
 
-static void setStatusMessage(const char *fmt, ...)
-{
-    va_list ap;
-    va_start(ap, fmt);
-    vsnprintf(E.statusmsg, sizeof(E.statusmsg), fmt, ap);
-    va_end(ap);
-    /* time(0) returns the time, instead of passing it to the parameter */
-    E.statusmsg_time = time(NULL);
-}
-
-
 
 static void refreshTerminal()
 {
@@ -369,12 +335,8 @@ static void refreshTerminal()
 
     tBufAppend(&tB, "\x1b[?25l", 6);
     tBufAppend(&tB, "\x1b[H", 3);
-    struct tm * timeinfo;
-    timeinfo = localtime (&E.statusmsg_time);
 
     drawRows(&tB);
-    setStatusMessage("Current time : %s", asctime(timeinfo));
-    drawStatusBar(&tB);
     drawAppMessage(&tB);
 
 
@@ -778,8 +740,13 @@ static void keepRefresing(void)
     while (th_run)
     {
         pthread_mutex_lock(&mutex);
+
         if (dirty)
             refreshTerminal();
+
+        /* Always update the time. */
+        printStatusMessage();
+
         pthread_mutex_unlock(&mutex);
 
         /* Wait two milliseconds to avoid unnecessary load. */
@@ -790,4 +757,32 @@ static void keepRefresing(void)
 termAttributes * getTermAttributes(void)
 {
     return &E;
+}
+
+static void printStatusMessage(void)
+{
+    /* Hide the cursor. */
+    write(STDOUT_FILENO,"\x1b[?25l", 6);
+    char *message;
+    /* Move the cursor to the line after the test's last row. */
+    asprintf(&message, "\x1b[%d;%dH", E.screenrows + 1, 0);
+    write(STDOUT_FILENO, message, strlen(message));
+    free(message);
+
+    /* Get the current time and print it in that line. */
+    struct tm * timeinfo;
+    time_t currentTime= time(NULL);
+    timeinfo = localtime (&currentTime);
+    asprintf(&E.statusmsg, "Current time : %s", asctime(timeinfo));
+    asprintf(&message, "\x1b[K%s",E.statusmsg);
+    write(STDOUT_FILENO, message, strlen(message));
+    free(message);
+    free(E.statusmsg);
+
+    /* Return the cursor to the original position. */
+    asprintf(&message, "\x1b[%d;%dH",(E.cy - E.rowoff) + 1, (E.rx - E.coloff) + 1);
+    write(STDOUT_FILENO, message, strlen(message));
+    free(message);
+    /* Show the cursor. */
+    write(STDOUT_FILENO,"\x1b[?25h", 6);
 }

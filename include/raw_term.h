@@ -59,9 +59,8 @@ typedef struct termAttributes
     int screencols;
     int numrows;
     tRow *row;
-    char statusmsg[80];
+    char *statusmsg;
     char appmsg[80];
-    time_t statusmsg_time;
     struct termios orig_termios;
 } termAttributes;
 
