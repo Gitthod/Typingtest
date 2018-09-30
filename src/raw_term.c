@@ -780,7 +780,7 @@ static void printStatusMessage(void)
         struct tm * timeinfo;
         time_t currentTime= time(NULL);
         timeinfo = localtime (&currentTime);
-        asprintf(&E.statusmsg, "Current time : %s", asctime(timeinfo));
+        asprintf(&E.statusmsg, "\x1b[7mCurrent time : %s\x1b[m", asctime(timeinfo));
         asprintf(&message, "\x1b[K%s",E.statusmsg);
         write(STDOUT_FILENO, message, strlen(message));
         free(message);
