@@ -97,8 +97,12 @@ static void keepRefresing(void);
 void pexit(const char *s)
 {
     int idx = 0;
-    /* Write string to stderr  and also copy to the static array for errors. */
-    perror(s);
+    /*
+     * Write a string to stderr  and also copy to the static array for errors.
+     * Writing to stderr allows to save errors by redirection
+     * For example <prog_name> <args ..> 2 >> errors
+     */
+    fputs(s, stderr);
     while ((error_messages[idx++] = *s++));
 
     exit(1);
@@ -377,6 +381,10 @@ void delRow(int line)
         E.cy--;
 
     E.numrows--;
+    if (E.numrows < E.screenrows)
+        E.rowoff = 0;
+    else
+        E.rowoff = E.numrows - E.screenrows;
     pthread_mutex_unlock(&mutex);
 }
 
@@ -396,6 +404,7 @@ static void freeRow(tRow *row)
 void moveCursor(int key)
 {
     pthread_mutex_lock(&mutex);
+    dirty = 1;
     tRow *row = (E.cy >= E.numrows) ? NULL : &E.row[E.cy];
 
     switch (key)
