@@ -5,6 +5,8 @@
 static termAttributes E;
 /* Thread to refresh periodically the terminal. */
 static pthread_t refreshScreen;
+/* Thread to check with low frequency whether the terminal was resized. */
+static pthread_t checkResize;
 /* Thread to refresh periodically the status bar. */
 static pthread_t statusBar;
 /* When this is set to 0 the thread that refreshes the screen will exit. */
@@ -74,6 +76,11 @@ static void drawAppMessage(tBuf *tb);
 static void printStatusMessage(void);
 
 /*
+ * This function is meant to be used as a thread to periodically update the status message.
+ */
+static void updateStatusMessage(void);
+
+/*
  * Update the specified row to have its spaces recalculated after tab insertions.
  */
 static void updateRow(tRow *row);
@@ -93,6 +100,11 @@ static void insertRow(int line, char *s, size_t len);
  * This function is run in a separate thread.
  */
 static void keepRefresing(void);
+
+/*
+ * Checks the dimensions of the terminal to readjust it in case of a resize.
+ */
+static void adjustNewDimensions(void);
 
 void pexit(const char *s)
 {
@@ -192,6 +204,7 @@ static void disableRawMode(void)
 {
     th_run = 0;
     pthread_join(refreshScreen, NULL);
+    pthread_join(checkResize, NULL);
     pthread_join(statusBar, NULL);
     write(STDOUT_FILENO,"\x1b[H\x1b[J", 6);
     printf("%s\r", error_messages);
@@ -221,7 +234,8 @@ void enableRawMode(void)
      * Since we use raw mode we we periodically refresh the screen using a thred
      */
     pthread_create(&refreshScreen, NULL, (void *(*)(void *))keepRefresing, NULL);
-    pthread_create(&statusBar, NULL, (void *(*)(void *))printStatusMessage, NULL);
+    pthread_create(&statusBar, NULL, (void *(*)(void *))updateStatusMessage, NULL);
+    pthread_create(&checkResize, NULL, (void *(*)(void *))adjustNewDimensions, NULL);
 
     if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1)
         pexit("tcsetattr");
@@ -579,15 +593,11 @@ int getKey()
     {
         case CTRL_KEY('q'):
             th_run = 0;
-            pthread_join(refreshScreen, NULL);
-            pthread_join(statusBar, NULL);
             exit(0);
             break;
 
         case CTRL_KEY('c'):
             th_run = 0;
-            pthread_join(refreshScreen, NULL);
-            pthread_join(statusBar, NULL);
             exit(0);
             break;
 
@@ -771,38 +781,69 @@ termAttributes * getTermAttributes(void)
     return &E;
 }
 
-static void printStatusMessage(void)
+static void updateStatusMessage(void)
 {
     while (th_run)
     {
         /* This thread has to be locked because it changes the cursor position. */
         pthread_mutex_lock(&mutex);
-        /* Hide the cursor. */
-        write(STDOUT_FILENO,"\x1b[?25l", 6);
-        char *message;
-        /* Move the cursor to the line after the test's last row. */
-        asprintf(&message, "\x1b[%d;%dH", E.screenrows + 1, 0);
-        write(STDOUT_FILENO, message, strlen(message));
-        free(message);
-
-        /* Get the current time and print it in that line. */
-        struct tm * timeinfo;
-        time_t currentTime= time(NULL);
-        timeinfo = localtime (&currentTime);
-        asprintf(&E.statusmsg, "\x1b[7mCurrent time : %s\x1b[m", asctime(timeinfo));
-        asprintf(&message, "\x1b[K%s",E.statusmsg);
-        write(STDOUT_FILENO, message, strlen(message));
-        free(message);
-        free(E.statusmsg);
-
-        /* Return the cursor to the original position. */
-        asprintf(&message, "\x1b[%d;%dH",(E.cy - E.rowoff) + 1, (E.rx - E.coloff) + 1);
-        write(STDOUT_FILENO, message, strlen(message));
-        free(message);
-        /* Show the cursor. */
-        write(STDOUT_FILENO,"\x1b[?25h", 6);
+        printStatusMessage();
         pthread_mutex_unlock(&mutex);
 
+        usleep(100000);
+    }
+}
+
+static void printStatusMessage(void)
+{
+    /* Hide the cursor. */
+    write(STDOUT_FILENO,"\x1b[?25l", 6);
+    char *message;
+    /* Move the cursor to the line after the test's last row. */
+    asprintf(&message, "\x1b[%d;%dH", E.screenrows + 1, 0);
+    write(STDOUT_FILENO, message, strlen(message));
+    free(message);
+
+    /* Get the current time and print it in that line. */
+    struct tm * timeinfo;
+    time_t currentTime= time(NULL);
+    timeinfo = localtime (&currentTime);
+    asprintf(&E.statusmsg, "\x1b[7mCurrent time : %s\x1b[m", asctime(timeinfo));
+    asprintf(&message, "\x1b[K%s",E.statusmsg);
+    write(STDOUT_FILENO, message, strlen(message));
+    free(message);
+    free(E.statusmsg);
+
+    /* Return the cursor to the original position. */
+    asprintf(&message, "\x1b[%d;%dH",(E.cy - E.rowoff) + 1, (E.rx - E.coloff) + 1);
+    write(STDOUT_FILENO, message, strlen(message));
+    free(message);
+    /* Show the cursor. */
+    write(STDOUT_FILENO,"\x1b[?25h", 6);
+}
+
+static void adjustNewDimensions(void)
+{
+    while (th_run)
+    {
+        struct winsize ws;
+
+        ioctl(STDIN_FILENO, TIOCGWINSZ, &ws);
+        if ((ws.ws_row - 2) != E.screenrows || ws.ws_col != E.screencols)
+        {
+            pthread_mutex_lock(&mutex);
+
+            E.screencols = ws.ws_col;
+            E.screenrows = ws.ws_row - 2;
+            write(STDOUT_FILENO,"\x1b[2J", 4);
+
+            refreshTerminal();
+            printStatusMessage();
+
+            pthread_mutex_unlock(&mutex);
+        }
+
+        /* Wait one tenth of a second to save resources */
         usleep(100000);
     }
 }

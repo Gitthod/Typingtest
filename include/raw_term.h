@@ -12,6 +12,7 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <sys/ioctl.h>
 
 /* Type definitios */
 
