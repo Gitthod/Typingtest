@@ -9,12 +9,16 @@ static pthread_t refreshScreen;
 static pthread_t checkResize;
 /* Thread to refresh periodically the status bar. */
 static pthread_t statusBar;
+/* Thread to refresh periodically the status bar. */
+static pthread_t TcustomCursor;
 /* When this is set to 0 the thread that refreshes the screen will exit. */
 static int th_run = 1;
 /* Save some error messages here. */
 static char error_messages[300];
 /* Is 1 if there was some insert or delete operation. Goes to 0 after the screen is updated. */
 static int dirty;
+/* Enable or disable the custom cursor.*/
+static int show_cursor;
 
 /* Mutex to prevent unsychronized acceses to E static variable*/
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -105,6 +109,11 @@ static void keepRefresing(void);
  * Checks the dimensions of the terminal to readjust it in case of a resize.
  */
 static void adjustNewDimensions(void);
+
+/*
+ * This function will print a custom symbol as a cursor, it is meant to be used in a thread.
+ */
+static void customCursor(void);
 
 void pexit(const char *s)
 {
@@ -206,7 +215,11 @@ static void disableRawMode(void)
     pthread_join(refreshScreen, NULL);
     pthread_join(checkResize, NULL);
     pthread_join(statusBar, NULL);
+    pthread_join(TcustomCursor, NULL);
     write(STDOUT_FILENO,"\x1b[H\x1b[J", 6);
+
+    /* Re-enable the cursor. */
+    write(STDOUT_FILENO,"\x1b[?25h", 6);
     printf("%s\r", error_messages);
     delRows(0);
     free(E.row);
@@ -230,11 +243,14 @@ void enableRawMode(void)
     raw.c_cflag |= (CS8);
     raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
 
+    /* Hide the cursor. */
+    write(STDOUT_FILENO,"\x1b[?25l", 6);
     /*
      * Since we use raw mode we we periodically refresh the screen using a thred
      */
     pthread_create(&refreshScreen, NULL, (void *(*)(void *))keepRefresing, NULL);
     pthread_create(&statusBar, NULL, (void *(*)(void *))updateStatusMessage, NULL);
+    pthread_create(&TcustomCursor, NULL, (void *(*)(void *))customCursor, NULL);
     pthread_create(&checkResize, NULL, (void *(*)(void *))adjustNewDimensions, NULL);
 
     if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1)
@@ -355,7 +371,6 @@ static void refreshTerminal()
 
     tBuf tB = ABUF_INIT;
 
-    tBufAppend(&tB, "\x1b[?25l", 6);
     tBufAppend(&tB, "\x1b[H", 3);
 
     drawRows(&tB);
@@ -367,7 +382,6 @@ static void refreshTerminal()
     snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.rowoff) + 1, (E.rx - E.coloff) + 1);
 
     tBufAppend(&tB, buf, strlen(buf));
-    tBufAppend(&tB, "\x1b[?25h", 6);
 
     write(STDOUT_FILENO, tB.b, tB.len);
     tBufFree(&tB);
@@ -785,10 +799,24 @@ static void updateStatusMessage(void)
 {
     while (th_run)
     {
-        /* This thread has to be locked because it changes the cursor position. */
-        pthread_mutex_lock(&mutex);
-        printStatusMessage();
-        pthread_mutex_unlock(&mutex);
+        /* The following check serves to reduce resources. */
+        struct tm *timeinfo;
+        time_t currentTime= time(NULL);
+        static int prev_seconds = - 1;
+        int update = 0;
+        timeinfo = localtime (&currentTime);
+        if (timeinfo->tm_sec != prev_seconds)
+        {
+            update = 1;
+            prev_seconds = timeinfo->tm_sec;
+        }
+        if (update)
+        {
+            /* This thread has to be locked because it changes the cursor position. */
+            pthread_mutex_lock(&mutex);
+            printStatusMessage();
+            pthread_mutex_unlock(&mutex);
+        }
 
         usleep(100000);
     }
@@ -796,8 +824,6 @@ static void updateStatusMessage(void)
 
 static void printStatusMessage(void)
 {
-    /* Hide the cursor. */
-    write(STDOUT_FILENO,"\x1b[?25l", 6);
     char *message;
     /* Move the cursor to the line after the test's last row. */
     asprintf(&message, "\x1b[%d;%dH", E.screenrows + 1, 0);
@@ -818,8 +844,6 @@ static void printStatusMessage(void)
     asprintf(&message, "\x1b[%d;%dH",(E.cy - E.rowoff) + 1, (E.rx - E.coloff) + 1);
     write(STDOUT_FILENO, message, strlen(message));
     free(message);
-    /* Show the cursor. */
-    write(STDOUT_FILENO,"\x1b[?25h", 6);
 }
 
 static void adjustNewDimensions(void)
@@ -846,4 +870,32 @@ static void adjustNewDimensions(void)
         /* Wait one tenth of a second to save resources */
         usleep(100000);
     }
+}
+
+static void customCursor(void)
+{
+    while (th_run)
+    {
+        if (show_cursor)
+        {
+            char *message;
+            pthread_mutex_lock(&mutex);
+            asprintf(&message, "\x1b[%d;%dH",(E.cy - E.rowoff) + 1, (E.rx - E.coloff) + 1);
+            write(STDOUT_FILENO, message, strlen(message));
+            write(STDOUT_FILENO, "\u2588", 3);
+            pthread_mutex_unlock(&mutex);
+        }
+        usleep(10000);
+    }
+    pthread_exit(NULL);
+}
+
+void enableCursor(void)
+{
+    show_cursor = 1;
+}
+
+void disableCursor(void)
+{
+    show_cursor = 0;
 }

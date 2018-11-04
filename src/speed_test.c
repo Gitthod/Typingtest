@@ -80,6 +80,7 @@ static void typingTest(void)
     asprintf(&test_message, "Type as fast as you can %u letters:\n", G_Test_Length);
     forCleanup(test_message);
     dumpRows(test_message, 0, sh_Attrs->numrows);
+    enableCursor();
     int test_offset = sh_Attrs->numrows;
 
     do
@@ -210,6 +211,7 @@ static void custom_test(char *test, char *test_name)
     reset_size = size_read;
 
     dumpRows("\n**************************************************\n\n", 0, sh_Attrs->numrows);
+    enableCursor();
     int test_offset = sh_Attrs->numrows;
 
     do
@@ -393,7 +395,7 @@ int goto_Menu(void)
         "Type q to quit the applications.\n"
         "##################################################\n";
 
-
+    disableCursor();
     if (init == 0)
     {
         enableRawMode();

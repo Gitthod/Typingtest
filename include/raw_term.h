@@ -144,9 +144,20 @@ void pexit(const char *s);
  * Retrun the address of the terminal attributes.
  */
 termAttributes * getTermAttributes(void);
+
 /*
  * Api to print some message in the lst line of the terminal.
  */
 void setAppMessage(const char *fmt, ...);
+
+/*
+ * Hide the custom cursor.
+ */
+void disableCursor(void);
+
+/*
+ * Show the custom cursor.
+ */
+void enableCursor(void);
 #endif
 
