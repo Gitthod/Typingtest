@@ -80,8 +80,9 @@ static void typingTest(void)
     asprintf(&test_message, "Type as fast as you can %u letters:\n", G_Test_Length);
     forCleanup(test_message);
     dumpRows(test_message, 0, sh_Attrs->numrows);
-    enableCursor();
     int test_offset = sh_Attrs->numrows;
+
+    enableCursor();
 
     do
     {
@@ -408,6 +409,7 @@ int goto_Menu(void)
     {
         delRows(test_offset);
     }
+    setAppMessage(">>>>>>>>>>>>>>>MAIN MENU<<<<<<<<<<<<<<<");
 
     while (notValidChar(c = getKey(), "Menu"));
 
@@ -447,11 +449,14 @@ static void browse_DB(void)
 
     char test_name[20];
     dumpRows(menu, 0, sh_Attrs->numrows);
+    setAppMessage(">>>>>>>>>>>>>>>>DB MENU<<<<<<<<<<<<<<<<");
     int menu_end = sh_Attrs->numrows;
 
     while (stay)
     {
+        disableCursor();
         while (notValidChar(c = l_getchar(), "DB"));
+        enableCursor();
 
         int cnt = 0;
         switch(c)
