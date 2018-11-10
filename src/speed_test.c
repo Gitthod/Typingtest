@@ -143,13 +143,12 @@ START:
                colorCode = 91;
 
 
-            setAppMessage("\x1b[%dmYour current CPM is : %.2f", colorCode, cpm);
+            setAppMessage("\x1b[%dmYour current CPM is : %.2f | \x1b[37mMistakes(Accuracy) : %d(%.2f\%)", colorCode, cpm,
+            mistakes, (float)mistakes / i * 100);
 
             /* Case isn't important for this test. */
             c = l_getchar();
             if (c != ptr[!idx]) {
-                i--;
-                mistakes++;
                 if (CTRL('r') == c)
                 {
                     delRows(test_offset);
@@ -165,13 +164,14 @@ START:
                     sleep(1);
                     return;
                 }
+                i--;
+                mistakes++;
             }
             else
             {
                 idx = !idx;
                 insertChar(c);
             }
-
         }
 
         asprintf(&message, "Your CPM was %.2f", cpm);
@@ -277,7 +277,8 @@ START:
                /* BRIGHT RED */
                colorCode = 91;
 
-            setAppMessage("\x1b[%dmYour current CPM is : %.2f", colorCode, cpm);
+            setAppMessage("\x1b[%dmYour current CPM is : %.2f | \x1b[37mMistakes(Accuracy) : %d(%.2f\%)", colorCode, cpm,
+            mistakes, (float)mistakes / idx * 100);
             c = getKey();
             if (c != test[idx] && (c != '\r' || test[idx] != '\n'))
             {

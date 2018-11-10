@@ -9,6 +9,8 @@ static pthread_t refreshScreen;
 static pthread_t checkResize;
 /* Thread to refresh periodically the status bar. */
 static pthread_t statusBar;
+/* Thread to refresh periodically the application message bar. */
+static pthread_t appMessageBar;
 /* Thread to refresh periodically the status bar. */
 static pthread_t TcustomCursor;
 /* When this is set to 0 the thread that refreshes the screen will exit. */
@@ -69,12 +71,6 @@ static void refreshTerminal(void);
 static void drawRows(tBuf *tB);
 
 /*
- * Append the app message to the tB buffer, this will normally be called after drawStatusBar. So it occupies the next
- * line.
- */
-static void drawAppMessage(tBuf *tb);
-
-/*
  * Get the current time and print it in the previous to last row using escape codes.
  */
 static void printStatusMessage(void);
@@ -114,6 +110,16 @@ static void adjustNewDimensions(void);
  * This function will print a custom symbol as a cursor, it is meant to be used in a thread.
  */
 static void customCursor(void);
+
+/*
+ * Prints the application message.
+ */
+static void printAppMessage(void);
+
+/*
+ * This functions prints the application message, it should be used in a thread.
+ */
+static void updateAppMessage(void);
 
 void pexit(const char *s)
 {
@@ -215,6 +221,7 @@ static void disableRawMode(void)
     pthread_join(refreshScreen, NULL);
     pthread_join(checkResize, NULL);
     pthread_join(statusBar, NULL);
+    pthread_join(appMessageBar, NULL);
     pthread_join(TcustomCursor, NULL);
     write(STDOUT_FILENO,"\x1b[H\x1b[J", 6);
 
@@ -250,6 +257,7 @@ void enableRawMode(void)
      */
     pthread_create(&refreshScreen, NULL, (void *(*)(void *))keepRefresing, NULL);
     pthread_create(&statusBar, NULL, (void *(*)(void *))updateStatusMessage, NULL);
+    pthread_create(&appMessageBar, NULL, (void *(*)(void *))updateAppMessage, NULL);
     pthread_create(&TcustomCursor, NULL, (void *(*)(void *))customCursor, NULL);
     pthread_create(&checkResize, NULL, (void *(*)(void *))adjustNewDimensions, NULL);
 
@@ -334,25 +342,6 @@ static void drawRows(tBuf *tB)
     }
 }
 
-static void drawAppMessage(tBuf *tB)
-{
-    /* Ensure there are no newline characters in the app msg */
-    for (int i = 0; i < sizeof(E.appmsg); i++)
-        if (E.appmsg[i] == '\n')
-        {
-            E.appmsg[i] = 0;
-            break;
-        }
-
-    /* If sizeof is used instead of strlen the message will be merged with previous. */
-    tBufAppend(tB, "\n", 1);
-
-    tBufAppend(tB, E.appmsg, strlen(E.appmsg));
-    if (E.appmsg[0])
-        tBufAppend(tB, "\x1b[39m", 5);
-    tBufAppend(tB, "\x1b[K", 3);
-}
-
 void setAppMessage(const char *fmt, ...)
 {
     pthread_mutex_lock(&mutex);
@@ -374,8 +363,6 @@ static void refreshTerminal()
     tBufAppend(&tB, "\x1b[H", 3);
 
     drawRows(&tB);
-    drawAppMessage(&tB);
-
 
     char buf[32];
     /* Move the cursor to the position indicated by E.cx and E.cy subtracting their respective offsets. */
@@ -846,6 +833,36 @@ static void printStatusMessage(void)
     free(message);
 }
 
+static void printAppMessage(void)
+{
+    char *message;
+    /* Move the cursor to the line after the test's last row. */
+    asprintf(&message, "\x1b[%d;%dH", E.screenrows + 2, 0);
+    write(STDOUT_FILENO, message, strlen(message));
+    free(message);
+
+    asprintf(&message, "%s\x1b[39m\x1b[K",E.appmsg);
+    write(STDOUT_FILENO, message, strlen(message));
+    free(message);
+
+    /* Return the cursor to the original position. */
+    asprintf(&message, "\x1b[%d;%dH",(E.cy - E.rowoff) + 1, (E.rx - E.coloff) + 1);
+    write(STDOUT_FILENO, message, strlen(message));
+    free(message);
+}
+
+static void updateAppMessage(void)
+{
+    while (th_run)
+    {
+        /* This functions has to be locked because it changes the cursor position. */
+        pthread_mutex_lock(&mutex);
+        printAppMessage();
+        pthread_mutex_unlock(&mutex);
+
+        usleep(100000);
+    }
+}
 static void adjustNewDimensions(void)
 {
     while (th_run)
