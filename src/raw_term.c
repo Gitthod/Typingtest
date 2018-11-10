@@ -877,9 +877,12 @@ static void adjustNewDimensions(void)
             E.screencols = ws.ws_col;
             E.screenrows = ws.ws_row - 2;
             write(STDOUT_FILENO,"\x1b[2J", 4);
+            /* Apparently when the terminal is resized the cursors appears again so it needs to be hidden again. */
+            write(STDOUT_FILENO,"\x1b[?25l", 6);
 
             refreshTerminal();
             printStatusMessage();
+            printAppMessage();
 
             pthread_mutex_unlock(&mutex);
         }
