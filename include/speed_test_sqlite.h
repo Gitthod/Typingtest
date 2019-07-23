@@ -1,6 +1,5 @@
 #ifndef SPEED_TEST_SQLITE_123
 #define SPEED_TEST_SQLITE_123
-#define _GNU_SOURCE // This is only defined for asprintf
 
 #include <sqlite3.h>
 #include <raw_term.h>

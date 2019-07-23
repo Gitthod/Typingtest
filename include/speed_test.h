@@ -1,7 +1,6 @@
 #ifndef SPEED_TEST_H_123
 #define SPEED_TEST_H_123
 
-#define _GNU_SOURCE
 #include <sys/time.h>
 #include <unistd.h>
 #include <speed_test_sqlite.h>

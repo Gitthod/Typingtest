@@ -1,10 +1,7 @@
-/* Some header can be included in others, however i will include them again to show the dependency. */
-#define _GNU_SOURCE // This is only defined for asprintf
-
 #include <speed_test.h>
 #include <raw_term.h>
 #include <speed_test_sqlite.h>
-#include <stdio.h>     // asprintf needs _GNU_SOURCE
+#include <stdio.h>
 #include <memory.h>
 
 #define DEFAULT_TEST_LENGTH 100
