@@ -19,6 +19,8 @@ static char *buffer = NULL;
 static char *test_name = NULL;
 /* Custom struct to store attributes of the current terminal session. */
 static termAttributes *sh_Attrs;
+/* Ignore all white spaces expept newLines. */
+static char skipWhiteSpace = 0;
 
 /* Function declarations */
 
@@ -218,6 +220,7 @@ static void custom_test(char *test, char *test_name)
     do
     {
         /* The number of mistakes */
+        int whiteSpace = 0;
         int mistakes = 0;
         int idx = 0;
         float test_time = 0;
@@ -232,6 +235,7 @@ START:
         dumpRows("\n**************************************************\n\n", 0, sh_Attrs->numrows);
 
         mistakes = 0;
+        whiteSpace = 0;
 
         while ((c = getKey()) != test[0])
             if (CTRL_KEY('b') == c)
@@ -249,11 +253,20 @@ START:
         while (test[idx])
         {
             int colorCode = 0;
+            if (skipWhiteSpace)
+                if (test[idx] == ' '  ||
+                    test[idx] == '\t'
+                    )
+                {
+                    whiteSpace++;
+                    insertChar(test[idx++]);
+                    continue;
+                }
 
             gettimeofday(&end, NULL);
             timersub(&end, &start, &result);
             test_time = result.tv_sec + (float)result.tv_usec / 1000000;
-            cpm = idx / test_time * 60;
+            cpm = (idx - whiteSpace)/ test_time * 60;
 
             if (cpm <= 200.0)
                 /* RED */
@@ -586,10 +599,13 @@ char *fileToBuffer(char *filename)
     return string;
 }
 
-void setAttributes(int testLength, char *testName, char *fileBuffer)
+void setAttributes(int testLength, char *testName, char *fileBuffer, char ignoreWhiteSpace)
 {
     if (testLength)
         G_Test_Length = testLength;
+
+    if (ignoreWhiteSpace)
+        skipWhiteSpace = 1;
 
     if (testName)
         test_name = testName;

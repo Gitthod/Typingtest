@@ -16,7 +16,7 @@ int goto_Menu(void);
 /*
  * Sets these attrbites which are static variables in the speed_test.c file.
  */
-void setAttributes(int testLength, char *testName, char *fileBuffer);
+void setAttributes(int testLength, char *testName, char *fileBuffer, char ignoreWhiteSpace);
 
 /*
  * Converts a string to a positive int. If the input isn't a number the function returns -1.

@@ -4,7 +4,11 @@
 #include <stdio.h>
 #include <memory.h>
 
-#define DEFAULT_TEST_LENGTH 100
+#define DEFAULT_TEST_LENGTH     100
+#define IGNORE_WHITE_SPACE      1
+#define DONT_IGNORE_WHITE_SPACE 0
+#define IRRELEVALT              0
+#define NOT_APPLICABLE          0
 
 int main(int argc, char** argv)
 {
@@ -26,11 +30,11 @@ int main(int argc, char** argv)
             return -1;
         }
 
-        setAttributes(testLength, 0, 0);
+        setAttributes(testLength, IRRELEVALT, NOT_APPLICABLE, NOT_APPLICABLE);
     }
     else if (argc == 1)
     {
-        setAttributes(DEFAULT_TEST_LENGTH, 0, 0);
+        setAttributes(DEFAULT_TEST_LENGTH, IRRELEVALT, NOT_APPLICABLE, NOT_APPLICABLE);
     }
     else
     {
@@ -40,7 +44,12 @@ int main(int argc, char** argv)
             printf("Can't open the filse %s\r\nexiting...\n", argv[1]);
             return -1;
         }
-        setAttributes(DEFAULT_TEST_LENGTH, argv[2], buffer);
+
+        /* If the test_name starts with an underscore ignore whitespaces. */
+        if (argv[2][0] == '_')
+            setAttributes(IRRELEVALT, argv[2], buffer, IGNORE_WHITE_SPACE);
+        else
+            setAttributes(IRRELEVALT, argv[2], buffer, DONT_IGNORE_WHITE_SPACE);
     }
 
     init_sqlite_db();
