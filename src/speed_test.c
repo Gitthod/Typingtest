@@ -141,12 +141,12 @@ START:
                 /* CYAN */
                 colorCode = 36;
             else
-               /* BRIGHT RED */
-               colorCode = 91;
+                /* BRIGHT RED */
+                colorCode = 91;
 
 
             setAppMessage("\x1b[%dmYour current CPM is : %.2f | \x1b[37mMistakes(Accuracy) : %d(%.2f\%)", colorCode, cpm,
-            mistakes, (float)mistakes / i * 100);
+                    mistakes, (float)mistakes / i * 100);
 
             /* Case isn't important for this test. */
             c = l_getchar();
@@ -255,11 +255,22 @@ START:
             int colorCode = 0;
             if (skipWhiteSpace)
                 if (test[idx] == ' '  ||
-                    test[idx] == '\t'
-                    )
+                    test[idx] == '\t' ||
+                    test[idx] == '\n'
+                   )
                 {
-                    whiteSpace++;
-                    insertChar(test[idx++]);
+                    if (test[idx] == '\n')
+                    {
+                        delRow(test_offset - 6);
+                        size_read += dumpRows(test_message + size_read, 1, test_offset - 4);
+                        delRows(test_offset);
+                        idx++;
+                    }
+                    else
+                    {
+                        whiteSpace++;
+                        insertChar(test[idx++]);
+                    }
                     continue;
                 }
 
@@ -287,11 +298,11 @@ START:
                 /* CYAN */
                 colorCode = 36;
             else
-               /* BRIGHT RED */
-               colorCode = 91;
+                /* BRIGHT RED */
+                colorCode = 91;
 
             setAppMessage("\x1b[%dmYour current CPM is : %.2f | \x1b[37mMistakes(Accuracy) : %d(%.2f\%)", colorCode, cpm,
-            mistakes, (float)mistakes / idx * 100);
+                    mistakes, (float)mistakes / idx * 100);
             c = getKey();
             if (c != test[idx] && (c != '\r' || test[idx] != '\n'))
             {
