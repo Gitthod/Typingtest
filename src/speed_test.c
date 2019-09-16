@@ -197,7 +197,7 @@ START:
 }
 
 /* Make it work with scrolling maybe calculate the availabe screen and split it in two
-   or work with the highlighted word*/
+   or work with the highlighted word. */
 static void custom_test(char *test, char *test_name)
 {
     char c;
@@ -237,7 +237,12 @@ START:
         mistakes = 0;
         whiteSpace = 0;
 
-        while ((c = getKey()) != test[0])
+        while ((c = getKey()) != test[idx])
+        {
+            /* The enter key which represents a new line is \r, therefore this check has to be done. */
+            if (test[idx] == '\n' && c == '\r')
+                break;
+
             if (CTRL_KEY('b') == c)
             {
                 delRows(test_offset);
@@ -245,14 +250,34 @@ START:
                 sleep(1);
                 return;
             }
+        }
 
-        insertChar(c);
-        gettimeofday(&start, NULL);
+        /* Don't try to insert a new line character. */
+        if (c != '\r')
+            insertChar(c);
+        else
+        {
+            /* Advance the text by one line if c == '\r' . */
+            delRow(test_offset - 6);
+            size_read += dumpRows(test_message + size_read, 1, test_offset - 4);
+            delRows(test_offset);
+        }
+
         idx++;
+        /* Skip all the connected white spaces. */
+        if (c == ' ' || c == '\t')
+            while (test[idx] == ' ' || test[idx] == '\t')
+            {
+                whiteSpace++;
+                insertChar(test[idx++]);
+            }
+
+        gettimeofday(&start, NULL);
 
         while (test[idx])
         {
             int colorCode = 0;
+
             if (skipWhiteSpace)
                 if (test[idx] == ' '  ||
                     test[idx] == '\t' ||
@@ -325,6 +350,8 @@ START:
             }
             else
             {
+                ++idx;
+                /* The if condition ensures that test[idx] == '\n' . */
                 if (c == '\r')
                 {
                     delRow(test_offset - 6);
@@ -335,14 +362,23 @@ START:
                 {
                     int temp = sh_Attrs->cy;
                     insertChar(c);
+
+                    /* Check if we reached a new line by passing the line limit. */
                     if (sh_Attrs->cy != temp)
                     {
                         delRow(sh_Attrs->numrows - 2);
                         delRow(test_offset - 6);
                         size_read += dumpRows(test_message + size_read, 1, test_offset - 4);
                     }
+
+                    /* Treat consecutive white spaces as one. */
+                    if (c == ' ' || c == '\t')
+                        while (test[idx] == ' ' || test[idx] == '\t')
+                        {
+                            whiteSpace++;
+                            insertChar(test[idx++]);
+                        }
                 }
-                idx++;
             }
         }
 
