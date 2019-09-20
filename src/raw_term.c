@@ -131,6 +131,11 @@ static void printAppMessage(void);
  */
 static void updateAppMessage(void);
 
+/*
+ * Abstracts character insertion in one row.
+ */
+static void rowInsertChar(tRow *row, int line, int c);
+
 void pexit(const char *s)
 {
     int idx = 0;
@@ -630,10 +635,10 @@ int getKey()
     }
 }
 
-void rowInsertChar(tRow *row, int line, int c)
+static void rowInsertChar(tRow *row, int offset, int c)
 {
-    if (line < 0 || line > row->size)
-        line = row->size;
+    if (offset < 0 || offset > row->size)
+        offset = row->size;
 
     /* row->chars always comes from malloc */
     row->chars = (char *)realloc(row->chars, row->size + 2);
@@ -641,9 +646,9 @@ void rowInsertChar(tRow *row, int line, int c)
     if (row->chars == 0)
         pexit("rowAppendString");
 
-    memmove(&row->chars[line + 1], &row->chars[line], row->size - line + 1);
+    memmove(&row->chars[offset + 1], &row->chars[offset], row->size - offset + 1);
     row->size++;
-    row->chars[line] = c;
+    row->chars[offset] = c;
     updateRow(row);
 }
 
@@ -949,7 +954,7 @@ void colorRow(uint32_t rowIndex, uint32_t colIndex, termColor color)
 {
     pthread_mutex_lock(&mutex);
 
-    if ( !E.row[rowIndex].hl)
+    if (!E.row[rowIndex].hl)
         E.row[rowIndex].hl = calloc(E.row[rowIndex].size, 1);
 
     for (int i = 0; i < colIndex; i ++)
