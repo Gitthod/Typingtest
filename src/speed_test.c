@@ -263,7 +263,10 @@ START:
 
         /* Don't try to insert a new line character. */
         if (c != '\r')
+        {
             insertChar(c);
+            colorRow(7, sh_Attrs->cx, GREEN);
+        }
         else
         {
             /* Advance the text by one line if c == '\r' . */

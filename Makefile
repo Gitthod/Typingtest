@@ -1,5 +1,5 @@
 CC = gcc
-# Include the directoy for <*.h>
+# Include the directory for <*.h>
 CFLAGS=-I$(IDIR) -pthread -Wall -D_GNU_SOURCE
 
 IDIR := include
@@ -8,7 +8,7 @@ SRCDIR := src
 
 ODIR := obj
 
-# Directoy to put the executables
+# Directory to put the executables
 BINDIR := binaries
 
 # Don't show an error if the directory exists
