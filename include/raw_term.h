@@ -2,6 +2,7 @@
 #define RAW_TERM_H_123
 
 #include <termios.h>
+#include <stdint.h>
 
 /* Type definitions */
 
@@ -63,6 +64,19 @@ typedef struct tBuf
     char *b;
     int len;
 } tBuf;
+
+typedef enum termColor
+{
+    BLACK = 30,
+    RED,
+    GREEN = 32,
+    YELLOW,
+    BLUE,
+    CYAN,
+    LIGHT_BLUE,
+    WHITE
+} termColor;
+
 
 /* Defines */
 
@@ -148,4 +162,7 @@ void disableCursor(void);
  * Show the custom cursor.
  */
 void enableCursor(void);
+
+/* Color row till column. */
+void colorRow(uint32_t rowIndex, uint32_t colIndex, termColor color);
 #endif

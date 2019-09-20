@@ -371,6 +371,7 @@ START:
                 {
                     int temp = sh_Attrs->cy;
                     insertChar(c);
+                    colorRow(7, sh_Attrs->cx, GREEN);
 
                     /* Check if we reached a new line by passing the line limit. */
                     if (sh_Attrs->cy != temp)

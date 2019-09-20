@@ -342,7 +342,20 @@ static void drawRows(tBuf *tB)
                 }
                 else
                 {
-                    tBufAppend(tB, &c[j], 1);
+                    if ( !E.row[filtRow].hl || !E.row[filtRow].hl[j])
+                        tBufAppend(tB, &c[j], 1);
+                    else
+                    {
+                        char tempColorCode[6];
+                        tempColorCode[5] = 0;
+                        /* This supposes that %hhd is always 2 digits long. */
+                        snprintf(tempColorCode, 6, "\x1b[%dm", E.row[filtRow].hl[j]);
+
+                        tBufAppend(tB, tempColorCode, 5);
+                        tBufAppend(tB, &c[j], 1);
+                        tBufAppend(tB, "\x1b[0m", 4);
+                    }
+
                 }
 
             }
@@ -361,7 +374,6 @@ void setAppMessage(const char *fmt, ...)
     va_end(ap);
     pthread_mutex_unlock(&mutex);
 }
-
 
 static void refreshTerminal()
 {
@@ -931,4 +943,17 @@ void enableCursor(void)
 void disableCursor(void)
 {
     show_cursor = 0;
+}
+
+void colorRow(uint32_t rowIndex, uint32_t colIndex, termColor color)
+{
+    pthread_mutex_lock(&mutex);
+
+    if ( !E.row[rowIndex].hl)
+        E.row[rowIndex].hl = calloc(E.row[rowIndex].size, 1);
+
+    for (int i = 0; i < colIndex; i ++)
+        E.row[rowIndex].hl[i] = color;
+
+    pthread_mutex_unlock(&mutex);
 }
