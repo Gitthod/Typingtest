@@ -248,7 +248,6 @@ static void disableRawMode(void)
 
     if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &E.orig_termios) == -1)
         pexit("tcsetattr");
-
 }
 
 
@@ -952,12 +951,32 @@ void disableCursor(void)
 
 void colorRow(uint32_t rowIndex, uint32_t colIndex, termColor color)
 {
+
+    /* Fail silently if the parameters are wrong but print to stderr. */
+    if (rowIndex >= E.numrows ||
+        colIndex > E.row[rowIndex].size)
+    {
+        fputs("colorRow called with out of bound indexes\n", stderr);
+        return;
+    }
+
     pthread_mutex_lock(&mutex);
 
-    if (!E.row[rowIndex].hl)
-        E.row[rowIndex].hl = calloc(E.row[rowIndex].size, 1);
+    E.row[rowIndex].hl = realloc(E.row[rowIndex].hl, E.row[rowIndex].rsize);
 
-    for (int i = 0; i < colIndex; i ++)
+    /* Initialize with zeros. */
+    for (int i = 0; i < E.row[rowIndex].rsize; i++)
+        E.row[rowIndex].hl[i] = 0;
+
+    /* Translate colIndex to renderedIndex. */
+    uint32_t renderedIndex = 0;
+    for (int i = 0; i < colIndex; i++)
+        if (E.row[rowIndex].chars[i] == '\t')
+            renderedIndex = (renderedIndex / TAB_STOP + 1 ) * TAB_STOP;
+        else
+            renderedIndex++;
+
+    for (int i = 0; i < renderedIndex; i ++)
         E.row[rowIndex].hl[i] = color;
 
     pthread_mutex_unlock(&mutex);
