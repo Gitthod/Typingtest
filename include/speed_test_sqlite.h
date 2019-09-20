@@ -1,10 +1,6 @@
 #ifndef SPEED_TEST_SQLITE_123
 #define SPEED_TEST_SQLITE_123
 
-#include <sqlite3.h>
-#include <raw_term.h>
-#include <stdio.h>
-
 /*Function definitions */
 
 /*

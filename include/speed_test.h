@@ -1,13 +1,6 @@
 #ifndef SPEED_TEST_H_123
 #define SPEED_TEST_H_123
 
-#include <sys/time.h>
-#include <unistd.h>
-#include <speed_test_sqlite.h>
-#include <raw_term.h>
-#include <stdio.h>
-#include <memory.h>
-
 /*
  * Prints the main menu message and handles the user's decisions.
  */

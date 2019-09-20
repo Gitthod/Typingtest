@@ -1,4 +1,7 @@
+#include <errno.h>
 #include <memory.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 
 /* This keeps track of pointers that need to be freed. */

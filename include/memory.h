@@ -1,8 +1,5 @@
 #ifndef MEMORY_H_123
 #define MEMORY_H_123
-#include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
 
 /*
  * Frees all the pointers registered with forCleanup function.

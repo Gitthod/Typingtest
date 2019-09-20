@@ -1,19 +1,9 @@
 #ifndef RAW_TERM_H_123
 #define RAW_TERM_H_123
 
-#include <stdarg.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <errno.h>
 #include <termios.h>
-#include <time.h>
-#include <string.h>
-#include <pthread.h>
-#include <stdio.h>
-#include <ctype.h>
-#include <sys/ioctl.h>
 
-/* Type definitios */
+/* Type definitions */
 
 enum termKey
 {
@@ -159,4 +149,3 @@ void disableCursor(void);
  */
 void enableCursor(void);
 #endif
-

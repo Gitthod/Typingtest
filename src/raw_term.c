@@ -1,4 +1,14 @@
 #include <raw_term.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <errno.h>
+#include <time.h>
+#include <string.h>
+#include <pthread.h>
+#include <stdio.h>
+#include <ctype.h>
+#include <sys/ioctl.h>
 
 /* Local variables */
 /* Custom struct to control the terminal */

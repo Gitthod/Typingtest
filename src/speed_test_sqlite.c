@@ -1,4 +1,10 @@
+#include <raw_term.h>
 #include <speed_test_sqlite.h>
+#include <sqlite3.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 
 /* Static functions. */
 static void deinitSQLite(void);

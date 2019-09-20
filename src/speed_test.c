@@ -1,4 +1,13 @@
+#include <memory.h>
+#include <raw_term.h>
 #include <speed_test.h>
+#include <speed_test_sqlite.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/time.h>
+#include <unistd.h>
+
 
 #define CTRL_KEY(k) ((k) & 0x1f)
 
