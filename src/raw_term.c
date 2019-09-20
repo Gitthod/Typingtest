@@ -909,11 +909,14 @@ static void customCursor(void)
         if (show_cursor)
         {
             char *message;
+
             pthread_mutex_lock(&mutex);
             asprintf(&message, "\x1b[%d;%dH",(E.cy - E.rowoff) + 1, (E.rx - E.coloff) + 1);
             write(STDOUT_FILENO, message, strlen(message));
             write(STDOUT_FILENO, "\u2588", 3);
             pthread_mutex_unlock(&mutex);
+
+            free(message);
         }
         usleep(10000);
     }
