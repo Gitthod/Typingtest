@@ -29,6 +29,7 @@ typedef struct tRow
     int idx;
     int size;
     int rsize;
+    int hlsize;
     char *chars;
     char *render;
     unsigned char *hl;
@@ -163,6 +164,10 @@ void disableCursor(void);
  */
 void enableCursor(void);
 
-/* Color row till column. */
-void colorRow(uint32_t rowIndex, uint32_t colIndex, termColor color);
+/*
+ * Color the character at (rowIndex, colIndex) coordinates.
+ * The function also will re adjust (and create the first time) the buffer for the character
+ * coloring if it is needed. The potential need arises when the row's rsize > hlsize .
+ */
+void colorPoint(uint32_t rowIndex, uint32_t colIndex, termColor color);
 #endif

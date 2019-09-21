@@ -699,6 +699,7 @@ void insertRow(int line, char *s, size_t len)
     memcpy(E.row[line].chars, s, len);
     E.row[line].chars[len] = '\0';
     E.row[line].rsize = 0;
+    E.row[line].hlsize = 0;
 
     E.row[line].render = NULL;
     E.row[line].hl = NULL;
@@ -949,7 +950,7 @@ void disableCursor(void)
     show_cursor = 0;
 }
 
-void colorRow(uint32_t rowIndex, uint32_t colIndex, termColor color)
+void colorPoint(uint32_t rowIndex, uint32_t colIndex, termColor color)
 {
 
     /* Fail silently if the parameters are wrong but print to stderr. */
@@ -962,11 +963,24 @@ void colorRow(uint32_t rowIndex, uint32_t colIndex, termColor color)
 
     pthread_mutex_lock(&mutex);
 
-    E.row[rowIndex].hl = realloc(E.row[rowIndex].hl, E.row[rowIndex].rsize);
+    /*
+     * It's not needed to realloc if rsize is smaller since it would
+     * consume a lot of processing power for insignificant memory.
+     */
+    if (E.row[rowIndex].rsize > E.row[rowIndex].hlsize)
+    {
+        int diff = E.row[rowIndex].rsize - E.row[rowIndex].hlsize;
+        E.row[rowIndex].hl = realloc(E.row[rowIndex].hl, E.row[rowIndex].rsize);
 
-    /* Initialize with zeros. */
-    for (int i = 0; i < E.row[rowIndex].rsize; i++)
-        E.row[rowIndex].hl[i] = 0;
+        if ( diff > 0)
+        {
+            /* Initialize with zeros the new elements. */
+            for (int i = 0; i < diff; i++)
+                E.row[rowIndex].hl[E.row[rowIndex].hlsize + i] = 0;
+
+            E.row[rowIndex].hlsize = E.row[rowIndex].rsize;
+        }
+    }
 
     /* Translate colIndex to renderedIndex. */
     uint32_t renderedIndex = 0;
@@ -976,8 +990,7 @@ void colorRow(uint32_t rowIndex, uint32_t colIndex, termColor color)
         else
             renderedIndex++;
 
-    for (int i = 0; i < renderedIndex; i ++)
-        E.row[rowIndex].hl[i] = color;
+    E.row[rowIndex].hl[renderedIndex - 1] = color;
 
     pthread_mutex_unlock(&mutex);
 }
