@@ -991,6 +991,7 @@ void colorPoint(uint32_t rowIndex, uint32_t colIndex, termColor color)
             renderedIndex++;
 
     E.row[rowIndex].hl[renderedIndex - 1] = color;
+    dirty = 1;
 
     pthread_mutex_unlock(&mutex);
 }
