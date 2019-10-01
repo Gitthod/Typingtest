@@ -48,9 +48,9 @@ int main(int argc, char** argv)
 
         /* If the test_name starts with an underscore ignore whitespaces. */
         if (argv[2][0] == '_')
-            setAttributes(IRRELEVANT, argv[2], buffer, IGNORE_WHITE_SPACE);
+            setAttributes(DEFAULT_TEST_LENGTH, argv[2], buffer, IGNORE_WHITE_SPACE);
         else
-            setAttributes(IRRELEVANT, argv[2], buffer, DONT_IGNORE_WHITE_SPACE);
+            setAttributes(DEFAULT_TEST_LENGTH, argv[2], buffer, DONT_IGNORE_WHITE_SPACE);
     }
 
     init_sqlite_db();
