@@ -4,12 +4,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <memory.h>
+#include <sys/stat.h>
 
 #define DEFAULT_TEST_LENGTH     100
 #define IGNORE_WHITE_SPACE      1
 #define DONT_IGNORE_WHITE_SPACE 0
 #define IRRELEVANT              0
 #define NOT_APPLICABLE          0
+
+extern char *directoryName;
 
 int main(int argc, char** argv)
 {
@@ -24,10 +27,17 @@ int main(int argc, char** argv)
     else if (argc == 2)
     {
         int testLength = convertInput(argv[1]);
+        struct stat statbuf = {0};
 
-        if (testLength < 0)
+        stat(argv[1], &statbuf);
+
+        if (S_ISDIR(statbuf.st_mode))
         {
-            printf("The correct format is: <prog> <filename> <name_of_test> or <prog> <number>\n");
+            directoryName = argv[1];
+        }
+        else if (testLength < 0)
+        {
+            printf("The correct format is: <prog> <filename> <name_of_test> or <prog> <number> or <prog> <dir_name>\n");
             return -1;
         }
 

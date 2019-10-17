@@ -7,8 +7,12 @@
 #include <string.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <dirent.h>
+#include <sys/stat.h>
 
 
+#define FILTERED_OUT 1
+#define PASS         0
 #define CTRL_KEY(k) ((k) & 0x1f)
 
 /* Static variables */
@@ -30,6 +34,8 @@ static char *test_name = NULL;
 static termAttributes *sh_Attrs;
 /* Ignore all white spaces expept newLines. */
 static char skipWhiteSpace = 0;
+/* Directory listing */
+char *directoryName = 0;
 
 /* Function declarations */
 
@@ -73,6 +79,15 @@ static void custom_test(char *test, char *test_name);
  */
 static void typingTest(void);
 
+/*
+ * Browse through the cli given directory to select a test(file).
+ */
+static void selectTest(void);
+
+/*
+ * Filter out specific endings or beginnings of files in file selection Menu.
+ */
+static int filterFiles(const char *fileName);
 
 static void typingTest(void)
 {
@@ -461,14 +476,27 @@ int goto_Menu(void)
     char c;
     static int init = 0;
     static int test_offset = 0;
+    char *Menu;
 
 
-    char *Menu = "##################################################\n"
+    if (directoryName == 0)
+    {
+        Menu = "##################################################\n"
         "Type enter or tab to enter the auto test.\n"
         "Type c to enter the custom test.\n"
         "Type b to browse the database.\n"
         "Type q to quit the applications.\n"
         "##################################################\n";
+    }
+    else
+    {
+        Menu = "##################################################\n"
+        "Type enter or tab to enter the auto test.\n"
+        "Type c to choose a custom test.\n"
+        "Type b to browse the database.\n"
+        "Type q to quit the applications.\n"
+        "##################################################\n";
+    }
 
     disableCursor();
     if (init == 0)
@@ -490,6 +518,10 @@ int goto_Menu(void)
     switch(c)
     {
         case 'c':
+            if (directoryName != 0)
+            {
+                selectTest();
+            }
             if (NULL == buffer)
                 pexit("No custom test was given\n");
             custom_test(buffer, test_name);
@@ -676,4 +708,142 @@ void setAttributes(int testLength, char *testName, char *fileBuffer, char ignore
         forCleanup(buffer);
     }
 
+}
+
+static void selectTest(void)
+{
+    int menu_start = sh_Attrs->numrows;
+
+    char *menu = "Select the file containing the text you want to be tested upon\n"
+                 "##############################################################\n";
+
+    dumpRows(menu, 0, sh_Attrs->numrows);
+    setAppMessage(">>>>>>>>>>>>>>> SELECT CUSTOM TEST <<<<<<<<<<<<<<<");
+
+    int menu_end = sh_Attrs->numrows;
+    uint8_t still_browsing = 0;
+    uint32_t fileCount = 0;
+    char * files[1000] = {0};
+    DIR *d;
+    struct dirent *dir;
+    d = opendir(directoryName);
+
+    do {
+        if (d)
+        {
+            chdir(directoryName);
+            while ((dir = readdir(d)) != NULL)
+            {
+                char *message;
+                if (filterFiles(dir->d_name) == PASS)
+                {
+                    asprintf(&message, "%d -> %s\n", fileCount++, dir->d_name);
+                    dumpRows(message, 0, sh_Attrs->numrows);
+                    free(message);
+
+                    /* Register the file name. */
+                    files[fileCount - 1] = dir->d_name;
+
+                }
+            }
+        }
+
+        /* Check the choice. */
+        {
+            uint8_t digits = 0;
+            uint8_t cnt = 0;
+            uint32_t temp = fileCount;
+
+            /* Count how many digits fileCount has. */
+            while (temp)
+            {
+                temp /= 10;
+                digits++;
+            }
+
+            char *response = (char *)malloc(digits);
+            char c = 0;
+            uint32_t convertToInt = 0;
+
+            while (cnt < digits && c != '\r')
+                while ((c = getKey()) < 48 && c > 58 && c != '\r');
+                    if( c != '\r')
+                        response[cnt++] = c;
+
+            for (cnt = 0; cnt < digits; cnt++)
+                convertToInt = 10 * convertToInt + response[cnt];
+
+            if (convertToInt < fileCount)
+            {
+                struct stat statbuf = {0};
+
+                stat(files[convertToInt], &statbuf);
+
+                if (S_ISDIR(statbuf.st_mode))
+                {
+                    closedir(d);
+                    d = opendir(files[convertToInt]);
+                    still_browsing = 1;
+                    delRows(menu_end);
+                }
+                else
+                {
+                    char *buffer = fileToBuffer(files[convertToInt]);
+                    delRows(menu_start);
+                    custom_test(buffer, test_name);
+
+                }
+
+            }
+        }
+    } while ( still_browsing );
+}
+
+static char *bannedEndings[] = {".swp", ".swo" };
+
+static char *bannedBeginnings[] = {"."};
+
+static int filterFiles(const char *fileName)
+{
+    const char *begin = fileName;
+    const char *end = fileName;
+    const char *idx = 0;
+    const char *widx = 0;
+
+    /* Make end point to the end for fileName. */
+    while(*end++);
+
+    /* Now end points to the string terminator of fileName. */
+    end--;
+
+    for (int i = 0; i < sizeof(bannedBeginnings) / sizeof(char *); i++)
+    {
+        widx = bannedBeginnings[i];
+        idx = begin;
+
+        while(*widx && *idx && *widx == *idx)
+            idx++, widx++;
+
+        if (*widx == 0)
+            return FILTERED_OUT;
+    }
+
+    for (int i = 0; i < sizeof(bannedEndings) / sizeof(char *); i++)
+    {
+        widx = bannedEndings[i];
+        idx = end;
+
+        /* Make widx point to the end of the banned ending. */
+        while(*widx++);
+
+        widx--;
+
+        while(widx >= bannedEndings[i] && idx >= begin && *widx == *idx)
+            idx--, widx--;
+
+        if (widx == bannedEndings[i] - 1)
+            return FILTERED_OUT;
+    }
+
+    return PASS;
 }
