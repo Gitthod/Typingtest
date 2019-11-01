@@ -1,3 +1,4 @@
+#include <openssl/sha.h>
 #include <memory.h>
 #include <raw_term.h>
 #include <speed_test.h>
@@ -522,6 +523,7 @@ int goto_Menu(void)
             {
                 selectTest();
             }
+
             if (NULL == buffer)
                 pexit("No custom test was given\n");
             custom_test(buffer, test_name);
@@ -722,28 +724,39 @@ static void selectTest(void)
 
     int menu_end = sh_Attrs->numrows;
     uint8_t still_browsing = 0;
-    uint32_t fileCount = 0;
-    char * files[1000] = {0};
     DIR *d;
     struct dirent *dir;
+    char *baseWorkingDir = getcwd(NULL, 0);
     d = opendir(directoryName);
 
+    chdir(directoryName);
+
     do {
+        uint32_t fileCount = 0;
+        /* Zero initialize files array. */
+        char *files[1000] = {};
+        struct stat statbuf = {0};
+
         if (d)
         {
-            chdir(directoryName);
             while ((dir = readdir(d)) != NULL)
             {
                 char *message;
                 if (filterFiles(dir->d_name) == PASS)
                 {
-                    asprintf(&message, "%d -> %s\n", fileCount++, dir->d_name);
+                    char type = 'f';
+
+                    stat(dir->d_name, &statbuf);
+
+                    if (S_ISDIR(statbuf.st_mode))
+                        type = 'd';
+
+                    asprintf(&message, "%d -> %s [%c]\n", fileCount, dir->d_name, type);
                     dumpRows(message, 0, sh_Attrs->numrows);
                     free(message);
 
                     /* Register the file name. */
-                    files[fileCount - 1] = dir->d_name;
-
+                    files[fileCount++] = dir->d_name;
                 }
             }
         }
@@ -766,34 +779,58 @@ static void selectTest(void)
             uint32_t convertToInt = 0;
 
             while (cnt < digits && c != '\r')
-                while ((c = getKey()) < 48 && c > 58 && c != '\r');
-                    if( c != '\r')
-                        response[cnt++] = c;
+            {
+                /* Ignore non number characters */
+                while (((c = getKey()) < 48 || c > 58) && c != '\r');
+                if( c != '\r')
+                    response[cnt++] = c - 48;
+
+                /* Insert the response here to make it more interactive. */
+            }
 
             for (cnt = 0; cnt < digits; cnt++)
                 convertToInt = 10 * convertToInt + response[cnt];
 
+            free(response);
+
             if (convertToInt < fileCount)
             {
-                struct stat statbuf = {0};
-
                 stat(files[convertToInt], &statbuf);
 
                 if (S_ISDIR(statbuf.st_mode))
                 {
                     closedir(d);
                     d = opendir(files[convertToInt]);
+                    chdir(files[convertToInt]);
                     still_browsing = 1;
                     delRows(menu_end);
                 }
                 else
                 {
-                    char *buffer = fileToBuffer(files[convertToInt]);
+                    buffer = fileToBuffer(files[convertToInt]);
+                    forCleanup(buffer);
+
+                    /* Make the test name to be the hash of its file name. */
+                    test_name = calloc(SHA_DIGEST_LENGTH + 1, 1);
+                    /* Need to add a way to retrieve test results from hashes (add sql queries in speed_test_sqlite.c)*/
+                    SHA1((unsigned char *)test_name, SHA_DIGEST_LENGTH, (unsigned char *)files[convertToInt]);
+                    forCleanup(test_name);
+
+                    /* End the loop. */
+                    still_browsing = 0;
+
+                    /* Return to the original directory. */
+                    chdir(baseWorkingDir);
+
+                    /* This pointer needs to be freed by us. */
+                    free(baseWorkingDir);
+
+                    /* Close the directory so it can be reopened in succesive calls(if needed). */
+                    closedir(d);
+
+                    /* Delete all the outpute associated with this function . */
                     delRows(menu_start);
-                    custom_test(buffer, test_name);
-
                 }
-
             }
         }
     } while ( still_browsing );

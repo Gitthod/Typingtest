@@ -15,7 +15,7 @@ BINDIR := binaries
 MKDIR_P := mkdir -p
 
 # Libraries needed
-LIBS := -lsqlite3
+LIBS := -lsqlite3 -lcrypto
 
 # Depend from all the header files
 DEPS := $(wildcard $(IDIR)/*.h)
