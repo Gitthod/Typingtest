@@ -1,16 +1,19 @@
+#include <ctype.h>
+#include <errno.h>
+#include <pthread.h>
 #include <raw_term.h>
 #include <stdarg.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <errno.h>
-#include <time.h>
-#include <string.h>
-#include <pthread.h>
 #include <stdio.h>
-#include <ctype.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/ioctl.h>
+#include <time.h>
+#include <unistd.h>
 
-/* Local variables */
+/* ------------------------------------------------------------------------------------------------------------------ */
+/* ------------------------------------------------ Static Variables ------------------------------------------------ */
+/* ------------------------------------------------------------------------------------------------------------------ */
+
 /* Custom struct to control the terminal */
 static termAttributes E;
 /* Thread to refresh periodically the terminal. */
@@ -35,7 +38,10 @@ static int show_cursor;
 /* Mutex to prevent unsychronized acceses to E static variable*/
 static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 
-/* Local functions */
+/* ------------------------------------------------------------------------------------------------------------------ */
+/* -------------------------------------------- Static Function Declarations ---------------------------------------- */
+/* ------------------------------------------------------------------------------------------------------------------ */
+
 /*
  * Frees *tB. Could be replaced by free, it only adds readability.
  */
@@ -136,46 +142,282 @@ static void updateAppMessage(void);
  */
 static void rowInsertChar(tRow *row, int line, int c);
 
-void pexit(const char *s)
-{
-    int idx = 0;
-    /*
-     * Write a string to stderr  and also copy to the static array for errors.
-     * Writing to stderr allows to save errors by redirection
-     * For example <prog_name> <args ..> 2 >> errors
-     */
-    fputs(s, stderr);
-    while ((error_messages[idx++] = *s++));
+/* ------------------------------------------------------------------------------------------------------------------ */
+/* ----------------------------------------- Static Function Implementations ---------------------------------------- */
+/* ------------------------------------------------------------------------------------------------------------------ */
 
-    exit(1);
+static void keepRefresing(void)
+{
+    while (th_run)
+    {
+        pthread_mutex_lock(&mutex);
+
+        if (dirty)
+            refreshTerminal();
+
+        pthread_mutex_unlock(&mutex);
+
+        /* Wait two milliseconds to avoid unnecessary load. */
+        usleep(2000);
+    }
+}
+
+static void rowInsertChar(tRow *row, int offset, int c)
+{
+    if (offset < 0 || offset > row->size)
+        offset = row->size;
+
+    /* row->chars always comes from malloc */
+    row->chars = (char *)realloc(row->chars, row->size + 2);
+
+    if (row->chars == 0)
+        pexit("rowAppendString");
+
+    memmove(&row->chars[offset + 1], &row->chars[offset], row->size - offset + 1);
+    row->size++;
+    row->chars[offset] = c;
+    updateRow(row);
+}
+
+static void updateStatusMessage(void)
+{
+    while (th_run)
+    {
+        /* The following check serves to reduce resources. */
+        struct tm *timeinfo;
+        time_t currentTime= time(NULL);
+        static int prev_seconds = - 1;
+        int update = 0;
+        timeinfo = localtime (&currentTime);
+        if (timeinfo->tm_sec != prev_seconds)
+        {
+            update = 1;
+            prev_seconds = timeinfo->tm_sec;
+        }
+        if (update)
+        {
+            /* This thread has to be locked because it changes the cursor position. */
+            pthread_mutex_lock(&mutex);
+            printStatusMessage();
+            pthread_mutex_unlock(&mutex);
+        }
+
+        usleep(100000);
+    }
+}
+
+static void refreshTerminal()
+{
+    dirty = 0;
+    shellScroll();
+
+    tBuf tB = ABUF_INIT;
+
+    tBufAppend(&tB, "\x1b[H", 3);
+
+    drawRows(&tB);
+
+    char buf[32];
+    /* Move the cursor to the position indicated by E.cx and E.cy subtracting their respective offsets. */
+    snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.rowoff) + 1, (E.rx - E.coloff) + 1);
+
+    tBufAppend(&tB, buf, strlen(buf));
+
+    write(STDOUT_FILENO, tB.b, tB.len);
+    tBufFree(&tB);
+}
+
+static void freeRow(tRow *row)
+{
+    free(row->render);
+    free(row->chars);
+    free(row->hl);
+}
+
+static void updateRow(tRow *row)
+{
+    dirty = 1;
+    int tabs = 0;
+    int j;
+    for (j = 0; j < row->size; j++)
+        if (row->chars[j] == '\t')
+            tabs++;
+
+    free(row->render);
+    row->render = (char *)malloc(row->size + tabs*(TAB_STOP - 1) + 1);
+
+    int idx = 0;
+    for (j = 0; j < row->size; j++)
+    {
+        if (row->chars[j] == '\t')
+        {
+            row->render[idx++] = ' ';
+            while (idx % TAB_STOP != 0)
+                row->render[idx++] = ' ';
+        }
+        else
+        {
+            row->render[idx++] = row->chars[j];
+        }
+    }
+    row->render[idx] = '\0';
+    row->rsize = idx;
+}
+
+static void printStatusMessage(void)
+{
+    char *message;
+    /* Move the cursor to the line after the test's last row. */
+    asprintf(&message, "\x1b[%d;%dH", E.screenrows + 1, 0);
+    write(STDOUT_FILENO, message, strlen(message));
+    free(message);
+
+    /* Get the current time and print it in that line. */
+    struct tm * timeinfo;
+    time_t currentTime= time(NULL);
+    timeinfo = localtime (&currentTime);
+    asprintf(&E.statusmsg, "\x1b[7mCurrent time : %s\x1b[m", asctime(timeinfo));
+    asprintf(&message, "\x1b[K%s",E.statusmsg);
+    write(STDOUT_FILENO, message, strlen(message));
+    free(message);
+    free(E.statusmsg);
+
+    /* Return the cursor to the original position. */
+    asprintf(&message, "\x1b[%d;%dH",(E.cy - E.rowoff) + 1, (E.rx - E.coloff) + 1);
+    write(STDOUT_FILENO, message, strlen(message));
+    free(message);
+}
+
+static void printAppMessage(void)
+{
+    char *message;
+    /* Move the cursor to the line after the test's last row. */
+    asprintf(&message, "\x1b[%d;%dH", E.screenrows + 2, 0);
+    write(STDOUT_FILENO, message, strlen(message));
+    free(message);
+
+    asprintf(&message, "%s\x1b[39m\x1b[K",E.appmsg);
+    write(STDOUT_FILENO, message, strlen(message));
+    free(message);
+
+    /* Return the cursor to the original position. */
+    asprintf(&message, "\x1b[%d;%dH",(E.cy - E.rowoff) + 1, (E.rx - E.coloff) + 1);
+    write(STDOUT_FILENO, message, strlen(message));
+    free(message);
+}
+
+static void updateAppMessage(void)
+{
+    while (th_run)
+    {
+        /* This functions has to be locked because it changes the cursor position. */
+        pthread_mutex_lock(&mutex);
+        printAppMessage();
+        pthread_mutex_unlock(&mutex);
+
+        usleep(100000);
+    }
+}
+
+static void adjustNewDimensions(void)
+{
+    while (th_run)
+    {
+        struct winsize ws;
+
+        ioctl(STDIN_FILENO, TIOCGWINSZ, &ws);
+        if ((ws.ws_row - 2) != E.screenrows || ws.ws_col != E.screencols)
+        {
+            pthread_mutex_lock(&mutex);
+
+            E.screencols = ws.ws_col;
+            E.screenrows = ws.ws_row - 2;
+            write(STDOUT_FILENO,"\x1b[2J", 4);
+            /* Apparently when the terminal is resized the cursors appears again so it needs to be hidden again. */
+            write(STDOUT_FILENO,"\x1b[?25l", 6);
+
+            refreshTerminal();
+            printStatusMessage();
+            printAppMessage();
+
+            pthread_mutex_unlock(&mutex);
+        }
+
+        /* Wait one tenth of a second to save resources */
+        usleep(100000);
+    }
+}
+
+static void customCursor(void)
+{
+    while (th_run)
+    {
+        if (show_cursor)
+        {
+            char *message;
+
+            pthread_mutex_lock(&mutex);
+            asprintf(&message, "\x1b[%d;%dH",(E.cy - E.rowoff) + 1, (E.rx - E.coloff) + 1);
+            write(STDOUT_FILENO, message, strlen(message));
+            write(STDOUT_FILENO, "\u2588", 3);
+            pthread_mutex_unlock(&mutex);
+
+            free(message);
+        }
+        usleep(10000);
+    }
+    pthread_exit(NULL);
+}
+
+void colorPoint(uint32_t rowIndex, uint32_t colIndex, termColor color)
+{
+
+    /* Fail silently if the parameters are wrong but print to stderr. */
+    if (rowIndex >= E.numrows ||
+        colIndex > E.row[rowIndex].size)
+    {
+        fputs("colorRow called with out of bound indexes\n", stderr);
+        return;
+    }
+
+    pthread_mutex_lock(&mutex);
+
+    /*
+     * It's not needed to realloc if rsize is smaller since it would
+     * consume a lot of processing power for insignificant memory.
+     */
+    if (E.row[rowIndex].rsize > E.row[rowIndex].hlsize)
+    {
+        int diff = E.row[rowIndex].rsize - E.row[rowIndex].hlsize;
+        E.row[rowIndex].hl = realloc(E.row[rowIndex].hl, E.row[rowIndex].rsize);
+
+        if ( diff > 0)
+        {
+            /* Initialize with zeros the new elements. */
+            for (int i = 0; i < diff; i++)
+                E.row[rowIndex].hl[E.row[rowIndex].hlsize + i] = 0;
+
+            E.row[rowIndex].hlsize = E.row[rowIndex].rsize;
+        }
+    }
+
+    /* Translate colIndex to renderedIndex. */
+    uint32_t renderedIndex = 0;
+    for (int i = 0; i < colIndex; i++)
+        if (E.row[rowIndex].chars[i] == '\t')
+            renderedIndex = (renderedIndex / TAB_STOP + 1 ) * TAB_STOP;
+        else
+            renderedIndex++;
+
+    E.row[rowIndex].hl[renderedIndex - 1] = color;
+    dirty = 1;
+
+    pthread_mutex_unlock(&mutex);
 }
 
 static void tBufFree(tBuf *tB)
 {
     free(tB->b);
-}
-
-termAttributes * initShellAttributes(void)
-{
-    pthread_mutex_lock(&mutex);
-    E.cx = 0;
-    E.cy = 0;
-    E.rx = 0;
-    E.rowoff = 0;
-    /* Unused but functional */
-    E.coloff = 0;
-    E.numrows = 0;
-    E.row = NULL;
-    E.statusmsg = NULL;
-    E.appmsg[0] = '\0';
-
-    if (getWindowSize(&E.screenrows, &E.screencols) == -1)
-        pexit("getWindowSize");
-    /* Save one row for the status and one for the Message bar */
-    E.screenrows -= 2;
-    pthread_mutex_unlock(&mutex);
-
-    return &E;
 }
 
 static int getCursorPosition(int *rows, int *cols)
@@ -216,20 +458,6 @@ static int getWindowSize(int *rows, int *cols)
     return getCursorPosition(rows, cols);
 }
 
-
-void tBufAppend(tBuf *tB, const char *s, int len)
-{
-    char *new = (char *)realloc(tB->b, tB->len + len);
-
-    if (new == 0)
-        pexit("tBufAppend");
-
-    memcpy(&new[tB->len], s, len);
-    tB->b = new;
-    tB->len += len;
-}
-
-
 static void disableRawMode(void)
 {
     th_run = 0;
@@ -247,35 +475,6 @@ static void disableRawMode(void)
     free(E.row);
 
     if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &E.orig_termios) == -1)
-        pexit("tcsetattr");
-}
-
-
-void enableRawMode(void)
-{
-    if (tcgetattr(STDIN_FILENO, &E.orig_termios) == -1)
-        pexit("tcgetattr");
-    /* Restore original paremeters on exit. */
-    atexit(disableRawMode);
-
-    struct termios raw = E.orig_termios;
-    raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
-    raw.c_oflag &= ~(OPOST);
-    raw.c_cflag |= (CS8);
-    raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
-
-    /* Hide the cursor. */
-    write(STDOUT_FILENO,"\x1b[?25l", 6);
-    /*
-     * Since we use raw mode we we periodically refresh the screen using a thred
-     */
-    pthread_create(&refreshScreen, NULL, (void *(*)(void *))keepRefresing, NULL);
-    pthread_create(&statusBar, NULL, (void *(*)(void *))updateStatusMessage, NULL);
-    pthread_create(&appMessageBar, NULL, (void *(*)(void *))updateAppMessage, NULL);
-    pthread_create(&TcustomCursor, NULL, (void *(*)(void *))customCursor, NULL);
-    pthread_create(&checkResize, NULL, (void *(*)(void *))adjustNewDimensions, NULL);
-
-    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1)
         pexit("tcsetattr");
 }
 
@@ -369,6 +568,87 @@ static void drawRows(tBuf *tB)
     }
 }
 
+/* ------------------------------------------------------------------------------------------------------------------ */
+/* ----------------------------------------- Global Function Implementations ---------------------------------------- */
+/* ------------------------------------------------------------------------------------------------------------------ */
+
+void pexit(const char *s)
+{
+    int idx = 0;
+    /*
+     * Write a string to stderr  and also copy to the static array for errors.
+     * Writing to stderr allows to save errors by redirection
+     * For example <prog_name> <args ..> 2 >> errors
+     */
+    fputs(s, stderr);
+    while ((error_messages[idx++] = *s++));
+
+    exit(1);
+}
+
+termAttributes * initShellAttributes(void)
+{
+    pthread_mutex_lock(&mutex);
+    E.cx = 0;
+    E.cy = 0;
+    E.rx = 0;
+    E.rowoff = 0;
+    /* Unused but functional */
+    E.coloff = 0;
+    E.numrows = 0;
+    E.row = NULL;
+    E.statusmsg = NULL;
+    E.appmsg[0] = '\0';
+
+    if (getWindowSize(&E.screenrows, &E.screencols) == -1)
+        pexit("getWindowSize");
+    /* Save one row for the status and one for the Message bar */
+    E.screenrows -= 2;
+    pthread_mutex_unlock(&mutex);
+
+    return &E;
+}
+
+void tBufAppend(tBuf *tB, const char *s, int len)
+{
+    char *new = (char *)realloc(tB->b, tB->len + len);
+
+    if (new == 0)
+        pexit("tBufAppend");
+
+    memcpy(&new[tB->len], s, len);
+    tB->b = new;
+    tB->len += len;
+}
+
+void enableRawMode(void)
+{
+    if (tcgetattr(STDIN_FILENO, &E.orig_termios) == -1)
+        pexit("tcgetattr");
+    /* Restore original paremeters on exit. */
+    atexit(disableRawMode);
+
+    struct termios raw = E.orig_termios;
+    raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON);
+    raw.c_oflag &= ~(OPOST);
+    raw.c_cflag |= (CS8);
+    raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);
+
+    /* Hide the cursor. */
+    write(STDOUT_FILENO,"\x1b[?25l", 6);
+    /*
+     * Since we use raw mode we we periodically refresh the screen using a thred
+     */
+    pthread_create(&refreshScreen, NULL, (void *(*)(void *))keepRefresing, NULL);
+    pthread_create(&statusBar, NULL, (void *(*)(void *))updateStatusMessage, NULL);
+    pthread_create(&appMessageBar, NULL, (void *(*)(void *))updateAppMessage, NULL);
+    pthread_create(&TcustomCursor, NULL, (void *(*)(void *))customCursor, NULL);
+    pthread_create(&checkResize, NULL, (void *(*)(void *))adjustNewDimensions, NULL);
+
+    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1)
+        pexit("tcsetattr");
+}
+
 void setAppMessage(const char *fmt, ...)
 {
     pthread_mutex_lock(&mutex);
@@ -377,27 +657,6 @@ void setAppMessage(const char *fmt, ...)
     vsnprintf(E.appmsg, sizeof(E.appmsg), fmt, ap);
     va_end(ap);
     pthread_mutex_unlock(&mutex);
-}
-
-static void refreshTerminal()
-{
-    dirty = 0;
-    shellScroll();
-
-    tBuf tB = ABUF_INIT;
-
-    tBufAppend(&tB, "\x1b[H", 3);
-
-    drawRows(&tB);
-
-    char buf[32];
-    /* Move the cursor to the position indicated by E.cx and E.cy subtracting their respective offsets. */
-    snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (E.cy - E.rowoff) + 1, (E.rx - E.coloff) + 1);
-
-    tBufAppend(&tB, buf, strlen(buf));
-
-    write(STDOUT_FILENO, tB.b, tB.len);
-    tBufFree(&tB);
 }
 
 void delRow(int line)
@@ -433,13 +692,6 @@ void delRows(int line)
 {
     while (line < E.numrows)
         delRow(line);
-}
-
-static void freeRow(tRow *row)
-{
-    free(row->render);
-    free(row->chars);
-    free(row->hl);
 }
 
 void moveCursor(int key)
@@ -493,36 +745,6 @@ void moveCursor(int key)
         E.cx = rowlen;
 
     pthread_mutex_unlock(&mutex);
-}
-
-static void updateRow(tRow *row)
-{
-    dirty = 1;
-    int tabs = 0;
-    int j;
-    for (j = 0; j < row->size; j++)
-        if (row->chars[j] == '\t')
-            tabs++;
-
-    free(row->render);
-    row->render = (char *)malloc(row->size + tabs*(TAB_STOP - 1) + 1);
-
-    int idx = 0;
-    for (j = 0; j < row->size; j++)
-    {
-        if (row->chars[j] == '\t')
-        {
-            row->render[idx++] = ' ';
-            while (idx % TAB_STOP != 0)
-                row->render[idx++] = ' ';
-        }
-        else
-        {
-            row->render[idx++] = row->chars[j];
-        }
-    }
-    row->render[idx] = '\0';
-    row->rsize = idx;
 }
 
 int readKey()
@@ -632,23 +854,6 @@ int getKey()
             return c;
             break;
     }
-}
-
-static void rowInsertChar(tRow *row, int offset, int c)
-{
-    if (offset < 0 || offset > row->size)
-        offset = row->size;
-
-    /* row->chars always comes from malloc */
-    row->chars = (char *)realloc(row->chars, row->size + 2);
-
-    if (row->chars == 0)
-        pexit("rowAppendString");
-
-    memmove(&row->chars[offset + 1], &row->chars[offset], row->size - offset + 1);
-    row->size++;
-    row->chars[offset] = c;
-    updateRow(row);
 }
 
 void insertChar(int c)
@@ -788,156 +993,10 @@ int dumpRows(char *string, int maxLines, int line)
     return idx;
 }
 
-static void keepRefresing(void)
-{
-    while (th_run)
-    {
-        pthread_mutex_lock(&mutex);
-
-        if (dirty)
-            refreshTerminal();
-
-        pthread_mutex_unlock(&mutex);
-
-        /* Wait two milliseconds to avoid unnecessary load. */
-        usleep(2000);
-    }
-}
 
 termAttributes * getTermAttributes(void)
 {
     return &E;
-}
-
-static void updateStatusMessage(void)
-{
-    while (th_run)
-    {
-        /* The following check serves to reduce resources. */
-        struct tm *timeinfo;
-        time_t currentTime= time(NULL);
-        static int prev_seconds = - 1;
-        int update = 0;
-        timeinfo = localtime (&currentTime);
-        if (timeinfo->tm_sec != prev_seconds)
-        {
-            update = 1;
-            prev_seconds = timeinfo->tm_sec;
-        }
-        if (update)
-        {
-            /* This thread has to be locked because it changes the cursor position. */
-            pthread_mutex_lock(&mutex);
-            printStatusMessage();
-            pthread_mutex_unlock(&mutex);
-        }
-
-        usleep(100000);
-    }
-}
-
-static void printStatusMessage(void)
-{
-    char *message;
-    /* Move the cursor to the line after the test's last row. */
-    asprintf(&message, "\x1b[%d;%dH", E.screenrows + 1, 0);
-    write(STDOUT_FILENO, message, strlen(message));
-    free(message);
-
-    /* Get the current time and print it in that line. */
-    struct tm * timeinfo;
-    time_t currentTime= time(NULL);
-    timeinfo = localtime (&currentTime);
-    asprintf(&E.statusmsg, "\x1b[7mCurrent time : %s\x1b[m", asctime(timeinfo));
-    asprintf(&message, "\x1b[K%s",E.statusmsg);
-    write(STDOUT_FILENO, message, strlen(message));
-    free(message);
-    free(E.statusmsg);
-
-    /* Return the cursor to the original position. */
-    asprintf(&message, "\x1b[%d;%dH",(E.cy - E.rowoff) + 1, (E.rx - E.coloff) + 1);
-    write(STDOUT_FILENO, message, strlen(message));
-    free(message);
-}
-
-static void printAppMessage(void)
-{
-    char *message;
-    /* Move the cursor to the line after the test's last row. */
-    asprintf(&message, "\x1b[%d;%dH", E.screenrows + 2, 0);
-    write(STDOUT_FILENO, message, strlen(message));
-    free(message);
-
-    asprintf(&message, "%s\x1b[39m\x1b[K",E.appmsg);
-    write(STDOUT_FILENO, message, strlen(message));
-    free(message);
-
-    /* Return the cursor to the original position. */
-    asprintf(&message, "\x1b[%d;%dH",(E.cy - E.rowoff) + 1, (E.rx - E.coloff) + 1);
-    write(STDOUT_FILENO, message, strlen(message));
-    free(message);
-}
-
-static void updateAppMessage(void)
-{
-    while (th_run)
-    {
-        /* This functions has to be locked because it changes the cursor position. */
-        pthread_mutex_lock(&mutex);
-        printAppMessage();
-        pthread_mutex_unlock(&mutex);
-
-        usleep(100000);
-    }
-}
-static void adjustNewDimensions(void)
-{
-    while (th_run)
-    {
-        struct winsize ws;
-
-        ioctl(STDIN_FILENO, TIOCGWINSZ, &ws);
-        if ((ws.ws_row - 2) != E.screenrows || ws.ws_col != E.screencols)
-        {
-            pthread_mutex_lock(&mutex);
-
-            E.screencols = ws.ws_col;
-            E.screenrows = ws.ws_row - 2;
-            write(STDOUT_FILENO,"\x1b[2J", 4);
-            /* Apparently when the terminal is resized the cursors appears again so it needs to be hidden again. */
-            write(STDOUT_FILENO,"\x1b[?25l", 6);
-
-            refreshTerminal();
-            printStatusMessage();
-            printAppMessage();
-
-            pthread_mutex_unlock(&mutex);
-        }
-
-        /* Wait one tenth of a second to save resources */
-        usleep(100000);
-    }
-}
-
-static void customCursor(void)
-{
-    while (th_run)
-    {
-        if (show_cursor)
-        {
-            char *message;
-
-            pthread_mutex_lock(&mutex);
-            asprintf(&message, "\x1b[%d;%dH",(E.cy - E.rowoff) + 1, (E.rx - E.coloff) + 1);
-            write(STDOUT_FILENO, message, strlen(message));
-            write(STDOUT_FILENO, "\u2588", 3);
-            pthread_mutex_unlock(&mutex);
-
-            free(message);
-        }
-        usleep(10000);
-    }
-    pthread_exit(NULL);
 }
 
 void enableCursor(void)
@@ -948,50 +1007,4 @@ void enableCursor(void)
 void disableCursor(void)
 {
     show_cursor = 0;
-}
-
-void colorPoint(uint32_t rowIndex, uint32_t colIndex, termColor color)
-{
-
-    /* Fail silently if the parameters are wrong but print to stderr. */
-    if (rowIndex >= E.numrows ||
-        colIndex > E.row[rowIndex].size)
-    {
-        fputs("colorRow called with out of bound indexes\n", stderr);
-        return;
-    }
-
-    pthread_mutex_lock(&mutex);
-
-    /*
-     * It's not needed to realloc if rsize is smaller since it would
-     * consume a lot of processing power for insignificant memory.
-     */
-    if (E.row[rowIndex].rsize > E.row[rowIndex].hlsize)
-    {
-        int diff = E.row[rowIndex].rsize - E.row[rowIndex].hlsize;
-        E.row[rowIndex].hl = realloc(E.row[rowIndex].hl, E.row[rowIndex].rsize);
-
-        if ( diff > 0)
-        {
-            /* Initialize with zeros the new elements. */
-            for (int i = 0; i < diff; i++)
-                E.row[rowIndex].hl[E.row[rowIndex].hlsize + i] = 0;
-
-            E.row[rowIndex].hlsize = E.row[rowIndex].rsize;
-        }
-    }
-
-    /* Translate colIndex to renderedIndex. */
-    uint32_t renderedIndex = 0;
-    for (int i = 0; i < colIndex; i++)
-        if (E.row[rowIndex].chars[i] == '\t')
-            renderedIndex = (renderedIndex / TAB_STOP + 1 ) * TAB_STOP;
-        else
-            renderedIndex++;
-
-    E.row[rowIndex].hl[renderedIndex - 1] = color;
-    dirty = 1;
-
-    pthread_mutex_unlock(&mutex);
 }

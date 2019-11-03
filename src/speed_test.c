@@ -1,4 +1,4 @@
-#include <openssl/sha.h>
+#include "speed_browser.h"
 #include <memory.h>
 #include <raw_term.h>
 #include <speed_test.h>
@@ -8,15 +8,12 @@
 #include <string.h>
 #include <sys/time.h>
 #include <unistd.h>
-#include <dirent.h>
-#include <sys/stat.h>
 
-
-#define FILTERED_OUT 1
-#define PASS         0
 #define CTRL_KEY(k) ((k) & 0x1f)
 
-/* Static variables */
+/* ------------------------------------------------------------------------------------------------------------------ */
+/* ------------------------------------------------ Static Variables ------------------------------------------------ */
+/* ------------------------------------------------------------------------------------------------------------------ */
 static char *Global_Ar[] = {"qw",
     "as",
     "zx",
@@ -27,18 +24,19 @@ static char *Global_Ar[] = {"qw",
 
 /* Test length for the 2 fingers test. */
 static int G_Test_Length;
-/* Will point to the converted file to characters */
-static char *buffer = NULL;
-/* Entry name for the sqlite db. */
-static char *test_name = NULL;
+
+/* Struct desribing the current test. */
+static currentTest cTest;
+
 /* Custom struct to store attributes of the current terminal session. */
 static termAttributes *sh_Attrs;
+
 /* Ignore all white spaces expept newLines. */
 static char skipWhiteSpace = 0;
-/* Directory listing */
-char *directoryName = 0;
 
-/* Function declarations */
+/* ------------------------------------------------------------------------------------------------------------------ */
+/* -------------------------------------------- Static Function Declarations ---------------------------------------- */
+/* ------------------------------------------------------------------------------------------------------------------ */
 
 /*
  * Checks whether the character c belongs to Global_Ar, in that case the function returns 1 , *idx contains the
@@ -80,15 +78,9 @@ static void custom_test(char *test, char *test_name);
  */
 static void typingTest(void);
 
-/*
- * Browse through the cli given directory to select a test(file).
- */
-static void selectTest(void);
-
-/*
- * Filter out specific endings or beginnings of files in file selection Menu.
- */
-static int filterFiles(const char *fileName);
+/* ------------------------------------------------------------------------------------------------------------------ */
+/* -------------------------------------------- Static Function Implementations ------------------------------------- */
+/* ------------------------------------------------------------------------------------------------------------------ */
 
 static void typingTest(void)
 {
@@ -448,21 +440,6 @@ static int checkValidKey(char c, char *idx, char** ptr)
     return 0;
 }
 
-int convertInput(char* input)
-{
-    int result = 0;
-    while (*input)
-    {
-        if (*input >= 48 && *input <= 57)
-        {
-            result = 10 * result + *input++ - 48;
-        }
-        else
-            return -1;
-    }
-    return result;
-}
-
 static int l_getchar(void)
 {
     int c = getKey();
@@ -470,79 +447,6 @@ static int l_getchar(void)
         c += 32;
 
     return c;
-}
-
-int goto_Menu(void)
-{
-    char c;
-    static int init = 0;
-    static int test_offset = 0;
-    char *Menu;
-
-
-    if (directoryName == 0)
-    {
-        Menu = "##################################################\n"
-        "Type enter or tab to enter the auto test.\n"
-        "Type c to enter the custom test.\n"
-        "Type b to browse the database.\n"
-        "Type q to quit the applications.\n"
-        "##################################################\n";
-    }
-    else
-    {
-        Menu = "##################################################\n"
-        "Type enter or tab to enter the auto test.\n"
-        "Type c to choose a custom test.\n"
-        "Type b to browse the database.\n"
-        "Type q to quit the applications.\n"
-        "##################################################\n";
-    }
-
-    disableCursor();
-    if (init == 0)
-    {
-        enableRawMode();
-        sh_Attrs = initShellAttributes();
-        dumpRows(Menu, 0, sh_Attrs->numrows);
-        init = 1;
-        test_offset = sh_Attrs->numrows;
-    }
-    else
-    {
-        delRows(test_offset);
-    }
-    setAppMessage(">>>>>>>>>>>>>>>MAIN MENU<<<<<<<<<<<<<<<");
-
-    while (notValidChar(c = getKey(), "Menu"));
-
-    switch(c)
-    {
-        case 'c':
-            if (directoryName != 0)
-            {
-                selectTest();
-            }
-
-            if (NULL == buffer)
-                pexit("No custom test was given\n");
-            custom_test(buffer, test_name);
-            return 1;
-        case '\r':
-            typingTest();
-            return 1;
-        case '\t':
-            typingTest();
-            return 1;
-        case 'q':
-            return 0;
-        case 'b':
-            browse_DB();
-            return 1;
-        default :
-            return 1;
-    }
-
 }
 
 static void browse_DB(void)
@@ -553,7 +457,7 @@ static void browse_DB(void)
         "Type 2 to browse average times\n"
         "Type 3 to get statistics for all tests\n"
         "Type x to exit the DB menu\n"
-        "##################################################\n";
+        "##############################################################\n";
 
     char test_name[20];
     dumpRows(menu, 0, sh_Attrs->numrows);
@@ -638,7 +542,6 @@ static void browse_DB(void)
 
         delRows(menu_end);
     }
-
 }
 
 static int notValidChar(char c, char *id)
@@ -670,6 +573,80 @@ static char *getListFromId(char *id)
     return 0;
 }
 
+/* ------------------------------------------------------------------------------------------------------------------ */
+/* -------------------------------------------- Global Function Implementations ------------------------------------- */
+/* ------------------------------------------------------------------------------------------------------------------ */
+
+int goto_Menu(void)
+{
+    char c;
+    static int init = 0;
+    static int test_offset = 0;
+    char *Menu;
+
+
+    Menu = "##############################################################\n"
+           "Type enter or tab to enter the auto test.\n"
+           "Type c to enter the custom test.\n"
+           "Type b to browse the database.\n"
+           "Type q to quit the applications.\n"
+           "##############################################################\n";
+
+    disableCursor();
+    if (init == 0)
+    {
+        enableRawMode();
+        sh_Attrs = initShellAttributes();
+        dumpRows(Menu, 0, sh_Attrs->numrows);
+        init = 1;
+        test_offset = sh_Attrs->numrows;
+    }
+    else
+    {
+        delRows(test_offset);
+    }
+    setAppMessage(">>>>>>>>>>>>>>>MAIN MENU<<<<<<<<<<<<<<<");
+
+    while (notValidChar(c = getKey(), "Menu"));
+
+    switch(c)
+    {
+        case 'c':
+            selectTest();
+            custom_test(cTest.text, cTest.testName);
+
+            return 1;
+        case '\r':
+            typingTest();
+            return 1;
+        case '\t':
+            typingTest();
+            return 1;
+        case 'q':
+            return 0;
+        case 'b':
+            browse_DB();
+            return 1;
+        default :
+            return 1;
+    }
+
+}
+
+int convertInput(char* input)
+{
+    int result = 0;
+    while (*input)
+    {
+        if (*input >= 48 && *input <= 57)
+        {
+            result = 10 * result + *input++ - 48;
+        }
+        else
+            return -1;
+    }
+    return result;
+}
 
 char *fileToBuffer(char *filename)
 {
@@ -702,185 +679,16 @@ void setAttributes(int testLength, char *testName, char *fileBuffer, char ignore
         skipWhiteSpace = 1;
 
     if (testName)
-        test_name = testName;
+        cTest.testName = testName;
 
     if (fileBuffer)
     {
-        buffer = fileBuffer;
-        forCleanup(buffer);
+        cTest.text = fileBuffer;
+        forCleanup(cTest.text);
     }
-
 }
 
-static void selectTest(void)
+currentTest * getCurrentTest()
 {
-    int menu_start = sh_Attrs->numrows;
-
-    char *menu = "Select the file containing the text you want to be tested upon\n"
-                 "##############################################################\n";
-
-    dumpRows(menu, 0, sh_Attrs->numrows);
-    setAppMessage(">>>>>>>>>>>>>>> SELECT CUSTOM TEST <<<<<<<<<<<<<<<");
-
-    int menu_end = sh_Attrs->numrows;
-    uint8_t still_browsing = 0;
-    DIR *d;
-    struct dirent *dir;
-    char *baseWorkingDir = getcwd(NULL, 0);
-    d = opendir(directoryName);
-
-    chdir(directoryName);
-
-    do {
-        uint32_t fileCount = 0;
-        /* Zero initialize files array. */
-        char *files[1000] = {};
-        struct stat statbuf = {0};
-
-        if (d)
-        {
-            while ((dir = readdir(d)) != NULL)
-            {
-                char *message;
-                if (filterFiles(dir->d_name) == PASS)
-                {
-                    char type = 'f';
-
-                    stat(dir->d_name, &statbuf);
-
-                    if (S_ISDIR(statbuf.st_mode))
-                        type = 'd';
-
-                    asprintf(&message, "%d -> %s [%c]\n", fileCount, dir->d_name, type);
-                    dumpRows(message, 0, sh_Attrs->numrows);
-                    free(message);
-
-                    /* Register the file name. */
-                    files[fileCount++] = dir->d_name;
-                }
-            }
-        }
-
-        /* Check the choice. */
-        {
-            uint8_t digits = 0;
-            uint8_t cnt = 0;
-            uint32_t temp = fileCount;
-
-            /* Count how many digits fileCount has. */
-            while (temp)
-            {
-                temp /= 10;
-                digits++;
-            }
-
-            char *response = (char *)malloc(digits);
-            char c = 0;
-            uint32_t convertToInt = 0;
-
-            while (cnt < digits && c != '\r')
-            {
-                /* Ignore non number characters */
-                while (((c = getKey()) < 48 || c > 58) && c != '\r');
-                if( c != '\r')
-                    response[cnt++] = c - 48;
-
-                /* Insert the response here to make it more interactive. */
-            }
-
-            for (cnt = 0; cnt < digits; cnt++)
-                convertToInt = 10 * convertToInt + response[cnt];
-
-            free(response);
-
-            if (convertToInt < fileCount)
-            {
-                stat(files[convertToInt], &statbuf);
-
-                if (S_ISDIR(statbuf.st_mode))
-                {
-                    closedir(d);
-                    d = opendir(files[convertToInt]);
-                    chdir(files[convertToInt]);
-                    still_browsing = 1;
-                    delRows(menu_end);
-                }
-                else
-                {
-                    buffer = fileToBuffer(files[convertToInt]);
-                    forCleanup(buffer);
-
-                    /* Make the test name to be the hash of its file name. */
-                    test_name = calloc(SHA_DIGEST_LENGTH + 1, 1);
-                    /* Need to add a way to retrieve test results from hashes (add sql queries in speed_test_sqlite.c)*/
-                    SHA1((unsigned char *)test_name, SHA_DIGEST_LENGTH, (unsigned char *)files[convertToInt]);
-                    forCleanup(test_name);
-
-                    /* End the loop. */
-                    still_browsing = 0;
-
-                    /* Return to the original directory. */
-                    chdir(baseWorkingDir);
-
-                    /* This pointer needs to be freed by us. */
-                    free(baseWorkingDir);
-
-                    /* Close the directory so it can be reopened in succesive calls(if needed). */
-                    closedir(d);
-
-                    /* Delete all the outpute associated with this function . */
-                    delRows(menu_start);
-                }
-            }
-        }
-    } while ( still_browsing );
-}
-
-static char *bannedEndings[] = {".swp", ".swo" };
-
-static char *bannedBeginnings[] = {"."};
-
-static int filterFiles(const char *fileName)
-{
-    const char *begin = fileName;
-    const char *end = fileName;
-    const char *idx = 0;
-    const char *widx = 0;
-
-    /* Make end point to the end for fileName. */
-    while(*end++);
-
-    /* Now end points to the string terminator of fileName. */
-    end--;
-
-    for (int i = 0; i < sizeof(bannedBeginnings) / sizeof(char *); i++)
-    {
-        widx = bannedBeginnings[i];
-        idx = begin;
-
-        while(*widx && *idx && *widx == *idx)
-            idx++, widx++;
-
-        if (*widx == 0)
-            return FILTERED_OUT;
-    }
-
-    for (int i = 0; i < sizeof(bannedEndings) / sizeof(char *); i++)
-    {
-        widx = bannedEndings[i];
-        idx = end;
-
-        /* Make widx point to the end of the banned ending. */
-        while(*widx++);
-
-        widx--;
-
-        while(widx >= bannedEndings[i] && idx >= begin && *widx == *idx)
-            idx--, widx--;
-
-        if (widx == bannedEndings[i] - 1)
-            return FILTERED_OUT;
-    }
-
-    return PASS;
+    return &cTest;
 }

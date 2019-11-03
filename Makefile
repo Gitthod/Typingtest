@@ -29,11 +29,10 @@ $(ODIR)/%.o:$(SRCDIR)/%.c $(DEPS) | $(ODIR)
 	@$(CC) -c -o $@ $< $(CFLAGS)
 
 
-$(BINDIR)/2fingers: $(OBJ) | $(BINDIR) $(ODIR)
+$(BINDIR)/2fingers: $(OBJ) | $(BINDIR) $(ODIR) $(TESTDIR)
 	@echo Linking everything into an executable...
 	@$(CC) -o $(BINDIR)/2fingers $(OBJ) $(CFLAGS) $(LIBS)
 	@echo Program 2fingers was succesfully built in ./binaries
-
 
 $(BINDIR):
 	@$(MKDIR_P) $(BINDIR)
@@ -42,6 +41,11 @@ $(BINDIR):
 $(ODIR) :
 	@$(MKDIR_P) $(ODIR)
 	@echo Created ./$(ODIR) folder
+
+# In this folder the tests should be placed, this folder will not be removed with make clean.
+$(TESTDIR):
+	@$(MKDIR_P) $(TESTDIR)
+	@echo Created ./$(TESTDIR) folder
 
 # Make a phony target so that make clean would run unconditionally even if a clean file was created
 .PHONY: clean
