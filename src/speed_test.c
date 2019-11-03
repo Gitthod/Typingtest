@@ -587,7 +587,7 @@ int goto_Menu(void)
 
     Menu = "##############################################################\n"
            "Type enter or tab to enter the auto test.\n"
-           "Type c to enter the custom test.\n"
+           "Type c to select a custom test.\n"
            "Type b to browse the database.\n"
            "Type q to quit the applications.\n"
            "##############################################################\n";

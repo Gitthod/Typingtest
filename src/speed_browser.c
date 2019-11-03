@@ -92,6 +92,7 @@ void selectTest(void)
     int menu_start;
     currentTest *cTest = getCurrentTest();
     char *testDir = "tests";
+    char *message;
 
     char *menu = "Select the file containing the text you want to be tested upon\n"
                  "##############################################################\n";
@@ -124,7 +125,6 @@ void selectTest(void)
         {
             while ((dir = readdir(d)) != NULL)
             {
-                char *message;
                 if (filterFiles(dir->d_name) == PASS)
                 {
                     char type = 'f';
@@ -150,6 +150,8 @@ void selectTest(void)
             uint8_t cnt = 0;
             uint32_t temp = fileCount;
 
+            dumpRows("Type the number of the file/dir you want to select.", 0, sh_Attrs->numrows);
+
             /* Count how many digits fileCount has. */
             while (temp)
             {
@@ -157,7 +159,7 @@ void selectTest(void)
                 digits++;
             }
 
-            char *response = (char *)malloc(digits);
+            char *response = (char *)calloc(digits ,1);
             char c = 0;
             uint32_t convertToInt = 0;
 
@@ -166,7 +168,10 @@ void selectTest(void)
                 /* Ignore non number characters */
                 while (((c = getKey()) < 48 || c > 58) && c != '\r');
                 if( c != '\r')
+                {
                     response[cnt++] = c - 48;
+                    insertChar(c);
+                }
 
                 /* Insert the response here to make it more interactive. */
             }
