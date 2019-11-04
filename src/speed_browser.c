@@ -15,8 +15,6 @@
 
 #define FILTERED_OUT       1
 #define PASS               0
-#define ASCII_RIGHT_ARROW 26
-#define ASCII_LEFT_ARROW  27
 
 /* ------------------------------------------------------------------------------------------------------------------ */
 /* ------------------------------------------- Internal Types Definition -------------------------------------------- */
@@ -46,7 +44,7 @@ static char *bannedBeginnings[] = {"."};
 /* ------------------------------------------------------------------------------------------------------------------ */
 
 /* Moves the cursor when selecting files. */
-static cursorStatus moveBrowseCursor(uint32_t min, uint32_t max, uint32_t current, uint8_t movement, termAttributes *E);
+static cursorStatus moveBrowseCursor(uint32_t min, uint32_t max, uint32_t *current, int movement, termAttributes *E);
 
 /*
  * Filter out specific endings or beginnings of files in file selection Menu.
@@ -102,28 +100,28 @@ static int filterFiles(const char *fileName)
     return PASS;
 }
 
-static cursorStatus moveBrowseCursor(uint32_t min, uint32_t max, uint32_t current, uint8_t movement, termAttributes *E)
+static cursorStatus moveBrowseCursor(uint32_t min, uint32_t max, uint32_t *current, int movement, termAttributes *E)
 {
     char *cursor = "\xe2\x86\x90"; /* Leftward arrow. */
-    if (current == max && movement == ASCII_RIGHT_ARROW)
+    if (*current == max && (movement == ARROW_DOWN || movement == 'j'))
     {
         return REACHED_BOTTOM;
     }
-    else if (current == min && movement == ASCII_LEFT_ARROW)
+    else if (*current == min && (movement == ARROW_UP || movement == 'k'))
     {
         return REACHED_TOP;
     }
     else
     {
-        rowTruncateString(&E->row[current], 3);
+        rowTruncateString(&E->row[*current], 3);
 
-        if (movement == ASCII_RIGHT_ARROW)
+        if (movement == ARROW_DOWN || movement == 'j')
         {
-            rowAppendString(&E->row[current + 1], cursor, 3);
+            rowAppendString(&E->row[(*current)++ + 1], cursor, 3);
         }
         else
         {
-            rowAppendString(&E->row[current - 1], cursor, 3);
+            rowAppendString(&E->row[(*current)-- - 1], cursor, 3);
         }
         return MOVEMENT_DONE;
     }
@@ -192,11 +190,13 @@ void selectTest(void)
 
         /* Check the choice. */
         {
+            uint32_t chosenByCursor = 0;
             uint8_t digits = 0;
             uint8_t cnt = 0;
             uint32_t temp = fileCount;
-            uint32_t current = menu_end + 1;
-            rowAppendString(&sh_Attrs->row[menu_end + 1], "\xe2\x86\x90", 3);
+            uint32_t current = menu_end;
+
+            rowAppendString(&sh_Attrs->row[current], "\xe2\x86\x90", 3);
 
             dumpRows("Type the number of the file/dir you want to select.", 0, sh_Attrs->numrows);
 
@@ -208,30 +208,43 @@ void selectTest(void)
             }
 
             char *response = (char *)calloc(digits ,1);
-            char c = 0;
+            int c = 0;
             uint32_t convertToInt = 0;
 
             while (cnt < digits && c != '\r')
             {
-                /* Ignore non number characters */
-                while (((c = getKey()) < 48 || c > 58) && c != '\r' && c != ASCII_LEFT_ARROW && c != ASCII_RIGHT_ARROW);
+                while (((c = getKey()) < 48 || c > 58)
+                       && c != '\r'
+                       && c != ARROW_DOWN
+                       && c != 'j'
+                       && c != ARROW_UP
+                       && c != 'k'
+                      );
+
                 if( c >= 48 && c < 58 )
                 {
                     response[cnt++] = c - 48;
                     insertChar(c);
                 }
-                else if ( c == ASCII_RIGHT_ARROW || c == ASCII_LEFT_ARROW )
+                else if (c == ARROW_DOWN
+                        || c == 'j'
+                        || c == ARROW_UP
+                        || c == 'k'
+                        )
                 {
-                    moveBrowseCursor(menu_end, menu_end + fileCount, current, c, sh_Attrs);
+                    moveBrowseCursor(menu_end, menu_end + fileCount - 1, &current, c, sh_Attrs);
                 }
                 else
                 {
-                    /* C can only be equal to Enter ('\r'). */
+                    chosenByCursor = 1;
                 }
             }
 
-            for (cnt = 0; cnt < digits; cnt++)
-                convertToInt = 10 * convertToInt + response[cnt];
+            if ( !chosenByCursor )
+                for (cnt = 0; cnt < digits; cnt++)
+                    convertToInt = 10 * convertToInt + response[cnt];
+            else
+                convertToInt = current - menu_end;
 
             free(response);
 

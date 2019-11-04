@@ -835,7 +835,7 @@ void rowAppendString(tRow *row, char *s, uint32_t len)
     row->chars[row->size] = '\0';
 
     updateRow(row);
-    pthread_mutex_lock(&mutex);
+    pthread_mutex_unlock(&mutex);
 }
 
 void rowTruncateString(tRow *row, uint32_t len)
@@ -846,6 +846,7 @@ void rowTruncateString(tRow *row, uint32_t len)
         pexit("rowTruncateString");
 
     row->chars = (char *)realloc(row->chars, row->size - len + 1);
+    row->size -= len;
 
     if (row->chars == 0)
         pexit("rowTruncateString");
@@ -853,7 +854,7 @@ void rowTruncateString(tRow *row, uint32_t len)
     row->chars[row->size] = '\0';
 
     updateRow(row);
-    pthread_mutex_lock(&mutex);
+    pthread_mutex_unlock(&mutex);
 }
 
 int getKey()
