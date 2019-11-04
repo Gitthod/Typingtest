@@ -226,7 +226,7 @@ static void custom_test(char *test, char *test_name)
     int repeat;
 
     char *test_message = 0;
-    asprintf(&test_message, "The test is :\n%s", test);
+    asprintf(&test_message, "The test under %s is :\n%s", cTest.fileName, test);
 
     int size_read = 0;
     int reset_size;

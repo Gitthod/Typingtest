@@ -8,6 +8,7 @@
 typedef struct currentTest {
     char *text;
     char *testName;
+    char *fileName;
 } currentTest;
 
 /* ------------------------------------------------------------------------------------------------------------------ */

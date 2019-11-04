@@ -268,20 +268,37 @@ void selectTest(void)
                     /* Make the test name to be the hash of its file name. */
                     cTest->testName = calloc(SHA_DIGEST_LENGTH + 1, 1);
                     /* Need to add a way to retrieve test results from hashes (add sql queries in speed_test_sqlite.c)*/
-                    SHA1((unsigned char *)cTest->testName, SHA_DIGEST_LENGTH, (unsigned char *)files[convertToInt]);
+                    SHA1((unsigned char *)files[convertToInt], SHA_DIGEST_LENGTH, (unsigned char *)cTest->testName);
+
                     forCleanup(cTest->testName);
+
+                    /* Copy the file name. */
+                    {
+                        uint16_t fileNameLength = 0;
+                        char *tmp = files[convertToInt];
+
+                        while (*tmp++)
+                            fileNameLength++;
+
+                        cTest->fileName = calloc(fileNameLength + 1, 1);
+
+                        for (int i = 0; i < fileNameLength; i++)
+                            cTest->fileName[i] = files[convertToInt][i];
+
+                        forCleanup(cTest->fileName);
+                    }
 
                     /* End the loop. */
                     still_browsing = 0;
+
+                    /* Close the directory so it can be reopened in succesive calls(if needed). */
+                    closedir(d);
 
                     /* Return to the original directory. */
                     chdir(baseWorkingDir);
 
                     /* This pointer needs to be freed by us. */
                     free(baseWorkingDir);
-
-                    /* Close the directory so it can be reopened in succesive calls(if needed). */
-                    closedir(d);
 
                     /* Delete all the outpute associated with this function . */
                     delRows(menu_start);
