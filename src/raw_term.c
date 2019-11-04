@@ -164,6 +164,7 @@ static void keepRefresing(void)
 
 static void rowInsertChar(tRow *row, int offset, int c)
 {
+    pthread_mutex_lock(&mutex);
     if (offset < 0 || offset > row->size)
         offset = row->size;
 
@@ -177,6 +178,7 @@ static void rowInsertChar(tRow *row, int offset, int c)
     row->size++;
     row->chars[offset] = c;
     updateRow(row);
+    pthread_mutex_unlock(&mutex);
 }
 
 static void updateStatusMessage(void)
@@ -815,8 +817,9 @@ int readKey()
     }
 }
 
-void rowAppendString(tRow *row, char *s, size_t len)
+void rowAppendString(tRow *row, char *s, uint32_t len)
 {
+    pthread_mutex_lock(&mutex);
     /*Check len is valid*/
     for (int i = 0; i < len; i++)
         if (!s[i])
@@ -832,6 +835,25 @@ void rowAppendString(tRow *row, char *s, size_t len)
     row->chars[row->size] = '\0';
 
     updateRow(row);
+    pthread_mutex_lock(&mutex);
+}
+
+void rowTruncateString(tRow *row, uint32_t len)
+{
+    pthread_mutex_lock(&mutex);
+
+    if (len > row->size)
+        pexit("rowTruncateString");
+
+    row->chars = (char *)realloc(row->chars, row->size - len + 1);
+
+    if (row->chars == 0)
+        pexit("rowTruncateString");
+
+    row->chars[row->size] = '\0';
+
+    updateRow(row);
+    pthread_mutex_lock(&mutex);
 }
 
 int getKey()
@@ -865,7 +887,11 @@ void insertChar(int c)
         insertRow(E.numrows, "", 0);
     }
 
+    pthread_mutex_unlock(&mutex);
+
     rowInsertChar(&E.row[E.cy], E.cx, c);
+
+    pthread_mutex_lock(&mutex);
 
     E.cx++;
     if (E.cx == E.screencols - 1)

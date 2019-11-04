@@ -1,7 +1,10 @@
-#ifndef SPEED_TEST_SQLITE_123
-#define SPEED_TEST_SQLITE_123
+#ifndef SPEED_TEST_SQLITE_H_123
+#define SPEED_TEST_SQLITE_H_123
 
-/*Function definitions */
+
+/* ------------------------------------------------------------------------------------------------------------------ */
+/* -------------------------------------------- Global Function Declarations ---------------------------------------- */
+/* ------------------------------------------------------------------------------------------------------------------ */
 
 /*
  * Gets the results returned by the sqlite query and prints them.

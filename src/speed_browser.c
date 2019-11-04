@@ -9,8 +9,24 @@
 #include <stdlib.h>
 #include <sys/stat.h>
 
-#define FILTERED_OUT 1
-#define PASS         0
+/* ------------------------------------------------------------------------------------------------------------------ */
+/* ---------------------------------------------------- Defines ----------------------------------------------------- */
+/* ------------------------------------------------------------------------------------------------------------------ */
+
+#define FILTERED_OUT       1
+#define PASS               0
+#define ASCII_RIGHT_ARROW 26
+#define ASCII_LEFT_ARROW  27
+
+/* ------------------------------------------------------------------------------------------------------------------ */
+/* ------------------------------------------- Internal Types Definition -------------------------------------------- */
+/* ------------------------------------------------------------------------------------------------------------------ */
+
+typedef enum cursorStatus {
+    REACHED_TOP = -1,
+    MOVEMENT_DONE,
+    REACHED_BOTTOM
+} cursorStatus;
 
 /* ------------------------------------------------------------------------------------------------------------------ */
 /* ------------------------------------------------ Static Variables ------------------------------------------------ */
@@ -28,6 +44,9 @@ static char *bannedBeginnings[] = {"."};
 /* ------------------------------------------------------------------------------------------------------------------ */
 /* -------------------------------------------- Static Function Declarations ---------------------------------------- */
 /* ------------------------------------------------------------------------------------------------------------------ */
+
+/* Moves the cursor when selecting files. */
+static cursorStatus moveBrowseCursor(uint32_t min, uint32_t max, uint32_t current, uint8_t movement, termAttributes *E);
 
 /*
  * Filter out specific endings or beginnings of files in file selection Menu.
@@ -81,6 +100,33 @@ static int filterFiles(const char *fileName)
     }
 
     return PASS;
+}
+
+static cursorStatus moveBrowseCursor(uint32_t min, uint32_t max, uint32_t current, uint8_t movement, termAttributes *E)
+{
+    char *cursor = "\xe2\x86\x90"; /* Leftward arrow. */
+    if (current == max && movement == ASCII_RIGHT_ARROW)
+    {
+        return REACHED_BOTTOM;
+    }
+    else if (current == min && movement == ASCII_LEFT_ARROW)
+    {
+        return REACHED_TOP;
+    }
+    else
+    {
+        rowTruncateString(&E->row[current], 3);
+
+        if (movement == ASCII_RIGHT_ARROW)
+        {
+            rowAppendString(&E->row[current + 1], cursor, 3);
+        }
+        else
+        {
+            rowAppendString(&E->row[current - 1], cursor, 3);
+        }
+        return MOVEMENT_DONE;
+    }
 }
 
 /* ------------------------------------------------------------------------------------------------------------------ */
@@ -149,6 +195,8 @@ void selectTest(void)
             uint8_t digits = 0;
             uint8_t cnt = 0;
             uint32_t temp = fileCount;
+            uint32_t current = menu_end + 1;
+            rowAppendString(&sh_Attrs->row[menu_end + 1], "\xe2\x86\x90", 3);
 
             dumpRows("Type the number of the file/dir you want to select.", 0, sh_Attrs->numrows);
 
@@ -166,14 +214,20 @@ void selectTest(void)
             while (cnt < digits && c != '\r')
             {
                 /* Ignore non number characters */
-                while (((c = getKey()) < 48 || c > 58) && c != '\r');
-                if( c != '\r')
+                while (((c = getKey()) < 48 || c > 58) && c != '\r' && c != ASCII_LEFT_ARROW && c != ASCII_RIGHT_ARROW);
+                if( c >= 48 && c < 58 )
                 {
                     response[cnt++] = c - 48;
                     insertChar(c);
                 }
-
-                /* Insert the response here to make it more interactive. */
+                else if ( c == ASCII_RIGHT_ARROW || c == ASCII_LEFT_ARROW )
+                {
+                    moveBrowseCursor(menu_end, menu_end + fileCount, current, c, sh_Attrs);
+                }
+                else
+                {
+                    /* C can only be equal to Enter ('\r'). */
+                }
             }
 
             for (cnt = 0; cnt < digits; cnt++)

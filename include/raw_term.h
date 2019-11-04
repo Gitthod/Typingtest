@@ -3,8 +3,20 @@
 
 #include <termios.h>
 #include <stdint.h>
+#include <stdint.h>
 
-/* Type definitions */
+/* ------------------------------------------------------------------------------------------------------------------ */
+/* ---------------------------------------------------- Defines ----------------------------------------------------- */
+/* ------------------------------------------------------------------------------------------------------------------ */
+
+#define TAB_STOP 4
+#define ABUF_INIT {NULL, 0}
+#define CTRL_KEY(k) ((k) & 0x1f)
+
+
+/* ------------------------------------------------------------------------------------------------------------------ */
+/* ------------------------------------------------ Type Definitions ------------------------------------------------ */
+/* ------------------------------------------------------------------------------------------------------------------ */
 
 enum termKey
 {
@@ -78,14 +90,9 @@ typedef enum termColor
     WHITE
 } termColor;
 
-
-/* Defines */
-
-#define TAB_STOP 4
-#define ABUF_INIT {NULL, 0}
-#define CTRL_KEY(k) ((k) & 0x1f)
-
-/*Function prototypes */
+/* ------------------------------------------------------------------------------------------------------------------ */
+/* -------------------------------------------- Global Function Declarations ---------------------------------------- */
+/* ------------------------------------------------------------------------------------------------------------------ */
 
 /*
  * Disables some default flags of the teminal to enable us to have
@@ -170,4 +177,11 @@ void enableCursor(void);
  * coloring if it is needed. The potential need arises when the row's rsize > hlsize .
  */
 void colorPoint(uint32_t rowIndex, uint32_t colIndex, termColor color);
+
+/* Remove the last len character from the specified row. */
+void rowTruncateString(tRow *row, uint32_t len);
+
+/* Append string s with the specified length to the end of row. */
+void rowAppendString(tRow *row, char *s, uint32_t len);
+
 #endif

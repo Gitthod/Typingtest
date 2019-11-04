@@ -8,6 +8,8 @@ SRCDIR := src
 
 ODIR := obj
 
+TESTDIR := tests
+
 # Directory to put the executables
 BINDIR := binaries
 

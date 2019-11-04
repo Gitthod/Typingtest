@@ -35,7 +35,6 @@ int convertInput(char* input);
  */
 char *fileToBuffer(char *filename);
 
-
 /* Returns a pointer relevant to the current test. */
 currentTest * getCurrentTest(void);
 #endif
