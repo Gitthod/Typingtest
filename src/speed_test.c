@@ -14,7 +14,7 @@
 /* ------------------------------------------------------------------------------------------------------------------ */
 
 #define CTRL_KEY(k) ((k) & 0x1f)
-#define PREVIEW_LINES    4
+#define PREVIEW_LINES    6
 
 /* ------------------------------------------------------------------------------------------------------------------ */
 /* ------------------------------------------------ Static Variables ------------------------------------------------ */
@@ -284,8 +284,8 @@ START:
         else
         {
             /* Advance the text by one line if c == '\r' . */
-            delRow(test_offset - 6);
-            size_read += dumpRows(test_message + size_read, 1, test_offset - 4);
+            delRow(test_offset - (PREVIEW_LINES + 2));
+            size_read += dumpRows(test_message + size_read, 1, test_offset - PREVIEW_LINES);
             delRows(test_offset);
         }
 
@@ -312,8 +312,8 @@ START:
                 {
                     if (test[idx] == '\n')
                     {
-                        delRow(test_offset - 6);
-                        size_read += dumpRows(test_message + size_read, 1, test_offset - 4);
+                        delRow(test_offset - (PREVIEW_LINES + 2));
+                        size_read += dumpRows(test_message + size_read, 1, test_offset - PREVIEW_LINES);
                         delRows(test_offset);
                         idx++;
                     }
@@ -380,8 +380,8 @@ START:
                 /* The if condition ensures that test[idx] == '\n' . */
                 if (c == '\r')
                 {
-                    delRow(test_offset - 6);
-                    size_read += dumpRows(test_message + size_read, 1, test_offset - 4);
+                    delRow(test_offset - (PREVIEW_LINES + 2));
+                    size_read += dumpRows(test_message + size_read, 1, test_offset - PREVIEW_LINES);
                     delRows(test_offset);
                 }
                 else
@@ -394,8 +394,8 @@ START:
                     if (sh_Attrs->cy != temp)
                     {
                         delRow(sh_Attrs->numrows - 2);
-                        delRow(test_offset - 6);
-                        size_read += dumpRows(test_message + size_read, 1, test_offset - 4);
+                        delRow(test_offset - (PREVIEW_LINES + 2));
+                        size_read += dumpRows(test_message + size_read, 1, test_offset - PREVIEW_LINES);
                     }
 
                     /* Treat consecutive white spaces as one. */
