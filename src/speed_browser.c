@@ -15,6 +15,8 @@
 
 #define FILTERED_OUT       1
 #define PASS               0
+#define BROWSE_MARKER      " \x1b[36m<==\x1b[0m"
+#define BROSE_MARKER_SIZE  13
 
 /* ------------------------------------------------------------------------------------------------------------------ */
 /* ------------------------------------------- Internal Types Definition -------------------------------------------- */
@@ -102,7 +104,7 @@ static int filterFiles(const char *fileName)
 
 static cursorStatus moveBrowseCursor(uint32_t min, uint32_t max, uint32_t *current, int movement, termAttributes *E)
 {
-    char *cursor = "\xe2\x86\x90"; /* Leftward arrow. */
+    char *cursor = BROWSE_MARKER; /* Leftward arrow. */
     if (*current == max && (movement == ARROW_DOWN || movement == 'j'))
     {
         return REACHED_BOTTOM;
@@ -113,15 +115,15 @@ static cursorStatus moveBrowseCursor(uint32_t min, uint32_t max, uint32_t *curre
     }
     else
     {
-        rowTruncateString(&E->row[*current], 3);
+        rowTruncateString(&E->row[*current], BROSE_MARKER_SIZE);
 
         if (movement == ARROW_DOWN || movement == 'j')
         {
-            rowAppendString(&E->row[(*current)++ + 1], cursor, 3);
+            rowAppendString(&E->row[(*current)++ + 1], cursor, BROSE_MARKER_SIZE);
         }
         else
         {
-            rowAppendString(&E->row[(*current)-- - 1], cursor, 3);
+            rowAppendString(&E->row[(*current)-- - 1], cursor, BROSE_MARKER_SIZE);
         }
         return MOVEMENT_DONE;
     }
@@ -196,7 +198,7 @@ void selectTest(void)
             uint32_t temp = fileCount;
             uint32_t current = menu_end;
 
-            rowAppendString(&sh_Attrs->row[current], "\xe2\x86\x90", 3);
+            rowAppendString(&sh_Attrs->row[current], BROWSE_MARKER, BROSE_MARKER_SIZE);
 
             dumpRows("Type the number of the file/dir you want to select.", 0, sh_Attrs->numrows);
 
