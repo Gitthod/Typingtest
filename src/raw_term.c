@@ -538,7 +538,7 @@ static void drawRows(tBuf *tB)
             int j;
             for (j = 0; j < len; j++)
             {
-                if (iscntrl(c[j]))
+                if (iscntrl(c[j]) && c[j] != '\x1b')
                 {
                     char sym = (c[j] <= 26) ? '@' + c[j] : '?';
                     tBufAppend(tB, "\x1b[7m", 4);
@@ -560,9 +560,7 @@ static void drawRows(tBuf *tB)
                         tBufAppend(tB, &c[j], 1);
                         tBufAppend(tB, "\x1b[0m", 4);
                     }
-
                 }
-
             }
         }
         tBufAppend(tB, "\x1b[K", 3);
