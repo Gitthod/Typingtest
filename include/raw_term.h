@@ -64,7 +64,7 @@ typedef struct termAttributes
     int numrows;
     tRow *row;
     char *statusmsg;
-    char appmsg[80];
+    char appmsg[100];
     struct termios orig_termios;
 } termAttributes;
 

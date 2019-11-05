@@ -16,7 +16,7 @@
 #define FILTERED_OUT       1
 #define PASS               0
 #define BROWSE_MARKER      " \x1b[36m<==\x1b[0m"
-#define BROSE_MARKER_SIZE  13
+#define BROWSE_MARKER_SIZE  13
 
 /* ------------------------------------------------------------------------------------------------------------------ */
 /* ------------------------------------------- Internal Types Definition -------------------------------------------- */
@@ -46,7 +46,7 @@ static char *bannedBeginnings[] = {"."};
 /* ------------------------------------------------------------------------------------------------------------------ */
 
 /* Moves the cursor when selecting files. */
-static cursorStatus moveBrowseCursor(uint32_t min, uint32_t max, uint32_t *current, int movement, termAttributes *E);
+static cursorStatus moveBrowseCursor(uint32_t min, uint32_t max, int *current, int movement, termAttributes *E);
 
 /*
  * Filter out specific endings or beginnings of files in file selection Menu.
@@ -102,7 +102,7 @@ static int filterFiles(const char *fileName)
     return PASS;
 }
 
-static cursorStatus moveBrowseCursor(uint32_t min, uint32_t max, uint32_t *current, int movement, termAttributes *E)
+static cursorStatus moveBrowseCursor(uint32_t min, uint32_t max, int *current, int movement, termAttributes *E)
 {
     char *cursor = BROWSE_MARKER; /* Leftward arrow. */
     if (*current == max && (movement == ARROW_DOWN || movement == 'j'))
@@ -115,15 +115,15 @@ static cursorStatus moveBrowseCursor(uint32_t min, uint32_t max, uint32_t *curre
     }
     else
     {
-        rowTruncateString(&E->row[*current], BROSE_MARKER_SIZE);
+        rowTruncateString(&E->row[*current], BROWSE_MARKER_SIZE);
 
         if (movement == ARROW_DOWN || movement == 'j')
         {
-            rowAppendString(&E->row[(*current)++ + 1], cursor, BROSE_MARKER_SIZE);
+            rowAppendString(&E->row[++(*current)], cursor, BROWSE_MARKER_SIZE);
         }
         else
         {
-            rowAppendString(&E->row[(*current)-- - 1], cursor, BROSE_MARKER_SIZE);
+            rowAppendString(&E->row[--(*current)], cursor, BROWSE_MARKER_SIZE);
         }
         return MOVEMENT_DONE;
     }
@@ -196,11 +196,14 @@ void selectTest(void)
             uint8_t digits = 0;
             uint8_t cnt = 0;
             uint32_t temp = fileCount;
-            uint32_t current = menu_end;
 
-            rowAppendString(&sh_Attrs->row[current], BROWSE_MARKER, BROSE_MARKER_SIZE);
+            rowAppendString(&sh_Attrs->row[sh_Attrs->cy - 1], BROWSE_MARKER, BROWSE_MARKER_SIZE);
+            sh_Attrs->cy -= 1;
+            asprintf(&message, "Type a number between 0 - %d, or press Enter to select the test under the cursor",
+                    fileCount);
+            setAppMessage(message);
+            free(message);
 
-            dumpRows("Type the number of the file/dir you want to select.", 0, sh_Attrs->numrows);
 
             /* Count how many digits fileCount has. */
             while (temp)
@@ -234,7 +237,7 @@ void selectTest(void)
                         || c == 'k'
                         )
                 {
-                    moveBrowseCursor(menu_end, menu_end + fileCount - 1, &current, c, sh_Attrs);
+                    moveBrowseCursor(menu_end, menu_end + fileCount - 1, &sh_Attrs->cy, c, sh_Attrs);
                 }
                 else
                 {
@@ -246,7 +249,7 @@ void selectTest(void)
                 for (cnt = 0; cnt < digits; cnt++)
                     convertToInt = 10 * convertToInt + response[cnt];
             else
-                convertToInt = current - menu_end;
+                convertToInt = sh_Attrs->cy - menu_end;
 
             free(response);
 
