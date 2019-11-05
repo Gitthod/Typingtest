@@ -14,6 +14,7 @@
 /* ------------------------------------------------------------------------------------------------------------------ */
 
 #define CTRL_KEY(k) ((k) & 0x1f)
+#define PREVIEW_LINES    4
 
 /* ------------------------------------------------------------------------------------------------------------------ */
 /* ------------------------------------------------ Static Variables ------------------------------------------------ */
@@ -226,13 +227,14 @@ static void custom_test(char *test, char *test_name)
     int repeat;
 
     char *test_message = 0;
-    asprintf(&test_message, "The test under %s is :\n%s", cTest.fileName, test);
+    /* This could create problems if the file_name is too long. */
+    asprintf(&test_message, "The file \x1b[33m%s\x1b[0m contains the following text :\n%s", cTest.fileName, test);
 
     int size_read = 0;
     int reset_size;
-    size_read = dumpRows(test_message, 4, sh_Attrs->numrows);
-    forCleanup(test_message);
+    size_read = dumpRows(test_message, PREVIEW_LINES, sh_Attrs->numrows);
     reset_size = size_read;
+    forCleanup(test_message);
 
     dumpRows("\n**************************************************\n\n", 0, sh_Attrs->numrows);
     enableCursor();
@@ -249,10 +251,10 @@ static void custom_test(char *test, char *test_name)
         repeat = 0;
 START:
         idx = 0;
-        delRows(test_offset - 7);
+        delRows(test_offset - (PREVIEW_LINES + 3));
         size_read = reset_size;
         setAppMessage("\x1b[37mWhen you start typing this will line will show your CPM");
-        dumpRows(test_message, 4, sh_Attrs->numrows);
+        dumpRows(test_message, PREVIEW_LINES, sh_Attrs->numrows);
         dumpRows("\n**************************************************\n\n", 0, sh_Attrs->numrows);
 
         mistakes = 0;
