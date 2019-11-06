@@ -394,7 +394,6 @@ START:
                 {
                     int temp = sh_Attrs->cy;
                     insertChar(c);
-                    colorPoint(7, sh_Attrs->cx, GREEN);
 
                     /* Check if we reached a new line by passing the line limit. */
                     if (sh_Attrs->cy != temp)
@@ -404,6 +403,10 @@ START:
 
                         /* -4 is the distance between the typing line and the last line of the test. */
                         size_read += dumpRows(test_message + size_read, 1, test_offset -  4);
+                    }
+                    else
+                    {
+                        colorPoint(7, sh_Attrs->cx, GREEN);
                     }
 
                     /* Treat consecutive white spaces as one. */
