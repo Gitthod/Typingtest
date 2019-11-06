@@ -9,9 +9,15 @@
 /* ---------------------------------------------------- Defines ----------------------------------------------------- */
 /* ------------------------------------------------------------------------------------------------------------------ */
 
-#define TAB_STOP 4
-#define ABUF_INIT {NULL, 0}
-#define CTRL_KEY(k) ((k) & 0x1f)
+#define TAB_STOP                4
+#define ABUF_INIT               {NULL, 0}
+#define CTRL_KEY(k)             ((k)   & 0x1f)
+#define STATUS_TAB_LINES        1
+#define APP_MESSAGE_LINES       3
+#define VT100_DEFAULT_TEXT      "\x1b[0m"
+#define VT100_CLEAR_CURSOR_DOWN "\x1b[J"
+#define VT100_CLEAR_TO_EOL      "\x1b[K"
+#define APP_MSG_NEWLINE         VT100_CLEAR_TO_EOL "\r\n"
 
 
 /* ------------------------------------------------------------------------------------------------------------------ */
@@ -64,7 +70,7 @@ typedef struct termAttributes
     int numrows;
     tRow *row;
     char *statusmsg;
-    char appmsg[100];
+    char appmsg[APP_MESSAGE_LINES * 100];
     struct termios orig_termios;
 } termAttributes;
 
@@ -130,12 +136,12 @@ void insertChar(int c);
 void moveCursor(int key);
 
 /*
- * Deletes the row with index line and realocates the rows with higher indexes.
+ * Deletes the row with index line and reallocates the rows with higher indexes.
  */
 void delRow(int line);
 
 /*
- * Deletes all the rows after line, and moves the curor to the beginning of the
+ * Deletes all the rows after line, and moves the cursor to the beginning of the
  * last row.
  */
 void delRows(int line);
@@ -152,15 +158,19 @@ int dumpRows(char *string, int maxLines, int line);
 void pexit(const char *s);
 
 /*
- * Retrun the address of the terminal attributes.
+ * Return the address of the terminal attributes.
  */
 termAttributes * getTermAttributes(void);
 
 /*
- * Api to print some message in the lst line of the terminal.
+ * Api to set the application message.
  */
 void setAppMessage(const char *fmt, ...);
 
+/*
+ * Api to append the application message.
+ */
+void appendAppMessage(const char *fmt, ...);
 /*
  * Hide the custom cursor.
  */

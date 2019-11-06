@@ -139,6 +139,7 @@ void selectTest(void)
     currentTest *cTest = getCurrentTest();
     char *testDir = "tests";
     char *message;
+    int menu_end;
 
     char *menu = "Select the file containing the text you want to be tested upon\n"
                  "##############################################################\n";
@@ -150,9 +151,8 @@ void selectTest(void)
     menu_start = sh_Attrs->numrows;
 
     dumpRows(menu, 0, sh_Attrs->numrows);
-    setAppMessage(">>>>>>>>>>>>>>> SELECT CUSTOM TEST <<<<<<<<<<<<<<<");
+    menu_end = sh_Attrs->numrows;
 
-    int menu_end = sh_Attrs->numrows;
     uint8_t still_browsing = 0;
     DIR *d;
     struct dirent *dir;
@@ -199,9 +199,10 @@ void selectTest(void)
 
             rowAppendString(&sh_Attrs->row[sh_Attrs->cy - 1], BROWSE_MARKER, BROWSE_MARKER_SIZE);
             sh_Attrs->cy -= 1;
-            asprintf(&message, "Type a number between 0 - %d, or press Enter to select the test under the cursor",
+            setAppMessage("Type a number between 0 - %d, or press Enter to select the test under the cursor",
                     fileCount);
-            setAppMessage(message);
+            appendAppMessage(APP_MSG_NEWLINE "You typed:");
+
             free(message);
 
 
@@ -229,7 +230,9 @@ void selectTest(void)
                 if( c >= 48 && c < 58 )
                 {
                     response[cnt++] = c - 48;
-                    insertChar(c);
+                    /* c has a size of int due to this app's limitations it's guaranteed that it will be null terminated.
+                     */
+                    appendAppMessage((char *)&c);
                 }
                 else if (c == ARROW_DOWN
                         || c == 'j'

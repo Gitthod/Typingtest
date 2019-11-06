@@ -298,7 +298,9 @@ static void printAppMessage(void)
     write(STDOUT_FILENO, message, strlen(message));
     free(message);
 
-    asprintf(&message, "%s\x1b[39m\x1b[K",E.appmsg);
+    asprintf(&message, "%s"
+             VT100_DEFAULT_TEXT
+             VT100_CLEAR_CURSOR_DOWN, E.appmsg);
     write(STDOUT_FILENO, message, strlen(message));
     free(message);
 
@@ -328,12 +330,12 @@ static void adjustNewDimensions(void)
         struct winsize ws;
 
         ioctl(STDIN_FILENO, TIOCGWINSZ, &ws);
-        if ((ws.ws_row - 2) != E.screenrows || ws.ws_col != E.screencols)
+        if ((ws.ws_row - (STATUS_TAB_LINES + APP_MESSAGE_LINES)) != E.screenrows || ws.ws_col != E.screencols)
         {
             pthread_mutex_lock(&mutex);
 
             E.screencols = ws.ws_col;
-            E.screenrows = ws.ws_row - 2;
+            E.screenrows = ws.ws_row - (STATUS_TAB_LINES + APP_MESSAGE_LINES);
             write(STDOUT_FILENO,"\x1b[2J", 4);
             /* Apparently when the terminal is resized the cursors appears again so it needs to be hidden again. */
             write(STDOUT_FILENO,"\x1b[?25l", 6);
@@ -602,8 +604,8 @@ termAttributes * initShellAttributes(void)
 
     if (getWindowSize(&E.screenrows, &E.screencols) == -1)
         pexit("getWindowSize");
-    /* Save one row for the status and one for the Message bar */
-    E.screenrows -= 2;
+    /* Save one row for the status and three for the Message bar */
+    E.screenrows -= STATUS_TAB_LINES + APP_MESSAGE_LINES;
     pthread_mutex_unlock(&mutex);
 
     return &E;
@@ -655,6 +657,17 @@ void setAppMessage(const char *fmt, ...)
     va_list ap;
     va_start(ap, fmt);
     vsnprintf(E.appmsg, sizeof(E.appmsg), fmt, ap);
+    va_end(ap);
+    pthread_mutex_unlock(&mutex);
+}
+
+void appendAppMessage(const char *fmt, ...)
+{
+    pthread_mutex_lock(&mutex);
+    int msgLength = strlen(E.appmsg);
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(E.appmsg + msgLength, sizeof(E.appmsg) - msgLength, fmt, ap);
     va_end(ap);
     pthread_mutex_unlock(&mutex);
 }
