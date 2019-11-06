@@ -236,7 +236,7 @@ static void custom_test(char *test, char *test_name)
     reset_size = size_read;
     forCleanup(test_message);
 
-    dumpRows("\n**************************************************\n\n", 0, sh_Attrs->numrows);
+    dumpRows("\nk**************************************************\n\n", 0, sh_Attrs->numrows);
     enableCursor();
     int test_offset = sh_Attrs->numrows;
 
@@ -251,6 +251,7 @@ static void custom_test(char *test, char *test_name)
         repeat = 0;
 START:
         idx = 0;
+        /* +3 is needed to delete also the line before the text. */
         delRows(test_offset - (PREVIEW_LINES + 3));
         size_read = reset_size;
         setAppMessage("\x1b[37mWhen you start typing this will line will show your CPM");
@@ -285,7 +286,9 @@ START:
         {
             /* Advance the text by one line if c == '\r' . */
             delRow(test_offset - (PREVIEW_LINES + 2));
-            size_read += dumpRows(test_message + size_read, 1, test_offset - PREVIEW_LINES);
+
+            /* -4 is the distance between the typing line and the last line of the test. */
+            size_read += dumpRows(test_message + size_read, 1, test_offset - 4);
             delRows(test_offset);
         }
 
@@ -313,7 +316,8 @@ START:
                     if (test[idx] == '\n')
                     {
                         delRow(test_offset - (PREVIEW_LINES + 2));
-                        size_read += dumpRows(test_message + size_read, 1, test_offset - PREVIEW_LINES);
+                        /* -4 is the distance between the typing line and the last line of the test. */
+                        size_read += dumpRows(test_message + size_read, 1, test_offset -  4);
                         delRows(test_offset);
                         idx++;
                     }
@@ -381,7 +385,9 @@ START:
                 if (c == '\r')
                 {
                     delRow(test_offset - (PREVIEW_LINES + 2));
-                    size_read += dumpRows(test_message + size_read, 1, test_offset - PREVIEW_LINES);
+
+                    /* -4 is the distance between the typing line and the last line of the test. */
+                    size_read += dumpRows(test_message + size_read, 1, test_offset - 4);
                     delRows(test_offset);
                 }
                 else
@@ -395,7 +401,9 @@ START:
                     {
                         delRow(sh_Attrs->numrows - 2);
                         delRow(test_offset - (PREVIEW_LINES + 2));
-                        size_read += dumpRows(test_message + size_read, 1, test_offset - PREVIEW_LINES);
+
+                        /* -4 is the distance between the typing line and the last line of the test. */
+                        size_read += dumpRows(test_message + size_read, 1, test_offset -  4);
                     }
 
                     /* Treat consecutive white spaces as one. */

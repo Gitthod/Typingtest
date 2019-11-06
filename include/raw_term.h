@@ -141,7 +141,7 @@ void delRow(int line);
 void delRows(int line);
 
 /*
- * Inserts up to maxLine lines in position line. This function always updates the cursor
+ * Inserts up to maxLines lines in position line. This function always updates the cursor
  * to be at the next to last row.
  */
 int dumpRows(char *string, int maxLines, int line);
