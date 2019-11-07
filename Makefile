@@ -1,6 +1,6 @@
 CC = gcc
 # Include the directory for <*.h>
-CFLAGS=-I$(IDIR) -pthread -Wall -D_GNU_SOURCE
+CFLAGS=-I$(IDIR) -pthread -Wall -D_GNU_SOURCE -g
 
 IDIR := include
 

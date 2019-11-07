@@ -9,6 +9,7 @@
 #include <sys/ioctl.h>
 #include <time.h>
 #include <unistd.h>
+#include "myStrings.h"
 
 /* ------------------------------------------------------------------------------------------------------------------ */
 /* ------------------------------------------------ Static Variables ------------------------------------------------ */
@@ -654,10 +655,22 @@ void enableRawMode(void)
 void setAppMessage(const char *fmt, ...)
 {
     pthread_mutex_lock(&mutex);
+    /* clear the rest of the line before you go to the new line, also clear the end of the last line. */
+
     va_list ap;
     va_start(ap, fmt);
     vsnprintf(E.appmsg, sizeof(E.appmsg), fmt, ap);
+
+    char *processedMessage = substitutePattern(E.appmsg, "\n", APP_MSG_NEWLINE);
+    int i = 0;
+
+    for(; processedMessage[i]; i++)
+        E.appmsg[i] = processedMessage[i];
+
+    E.appmsg[i] = 0;
+
     va_end(ap);
+    free(processedMessage);
     pthread_mutex_unlock(&mutex);
 }
 

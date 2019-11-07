@@ -478,8 +478,8 @@ static void browse_DB(void)
 
     char test_name[20];
     dumpRows(menu, 0, sh_Attrs->numrows);
-    setAppMessage("---------------------------------------" APP_MSG_NEWLINE
-                  ">>>>>>>>>>>>>>>>DB MENU<<<<<<<<<<<<<<<<" APP_MSG_NEWLINE
+    setAppMessage("---------------------------------------\n"
+                  ">>>>>>>>>>>>>>>>DB MENU<<<<<<<<<<<<<<<<\n"
                   "---------------------------------------");
     int menu_end = sh_Attrs->numrows;
 
@@ -624,8 +624,8 @@ int goto_Menu(void)
     {
         delRows(test_offset);
     }
-    setAppMessage("---------------------------------------" APP_MSG_NEWLINE
-                  ">>>>>>>>>>>>>>>MAIN MENU<<<<<<<<<<<<<<<" APP_MSG_NEWLINE
+    setAppMessage("---------------------------------------\n"
+                  ">>>>>>>>>>>>>>>MAIN MENU<<<<<<<<<<<<<<<\n"
                   "---------------------------------------");
 
     while (notValidChar(c = getKey(), "Menu"));

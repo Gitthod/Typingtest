@@ -199,9 +199,9 @@ void selectTest(void)
 
             rowAppendString(&sh_Attrs->row[sh_Attrs->cy - 1], BROWSE_MARKER, BROWSE_MARKER_SIZE);
             sh_Attrs->cy -= 1;
-            setAppMessage("Type a number between 0 - %d, or press Enter to select the test under the cursor",
+            setAppMessage("Type a number between 0 - %d, or press Enter to select the test under the cursor\n",
                     fileCount);
-            appendAppMessage(APP_MSG_NEWLINE "You typed:");
+            appendAppMessage("You typed:");
 
             free(message);
 
