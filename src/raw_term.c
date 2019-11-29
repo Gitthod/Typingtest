@@ -661,16 +661,17 @@ void setAppMessage(const char *fmt, ...)
     va_start(ap, fmt);
     vsnprintf(E.appmsg, sizeof(E.appmsg), fmt, ap);
 
-    char *processedMessage = substitutePattern(E.appmsg, "\n", APP_MSG_NEWLINE);
-    int i = 0;
+    {
+        char *processedMessage = substitutePattern(E.appmsg, "\n", APP_MSG_NEWLINE);
+        int i = 0;
+        for(; processedMessage[i]; i++)
+            E.appmsg[i] = processedMessage[i];
 
-    for(; processedMessage[i]; i++)
-        E.appmsg[i] = processedMessage[i];
-
-    E.appmsg[i] = 0;
+        E.appmsg[i] = 0;
+        free(processedMessage);
+    }
 
     va_end(ap);
-    free(processedMessage);
     pthread_mutex_unlock(&mutex);
 }
 
@@ -948,17 +949,20 @@ void insertRow(int line, char *s, size_t len)
     for (int j = line + 1; j <= E.numrows; j++)
         E.row[j].idx++;
 
-    E.row[line].idx = line;
+    /* Initialize the new line */
+    {
+        E.row[line].idx = line;
+        E.row[line].size = len;
+        E.row[line].chars = (char *)malloc(len + 1);
+        E.row[line].chars[len] = '\0';
+        E.row[line].rsize = 0;
+        E.row[line].hlsize = 0;
+        E.row[line].render = NULL;
+        E.row[line].hl = NULL;
+    }
 
-    E.row[line].size = len;
-    E.row[line].chars = (char *)malloc(len + 1);
     memcpy(E.row[line].chars, s, len);
-    E.row[line].chars[len] = '\0';
-    E.row[line].rsize = 0;
-    E.row[line].hlsize = 0;
 
-    E.row[line].render = NULL;
-    E.row[line].hl = NULL;
     updateRow(&E.row[line]);
 
     E.numrows++;

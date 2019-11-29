@@ -203,9 +203,6 @@ void selectTest(void)
                     fileCount);
             appendAppMessage("You typed:");
 
-            free(message);
-
-
             /* Count how many digits fileCount has. */
             while (temp)
             {
