@@ -227,6 +227,12 @@ static void custom_test(char *test, char *test_name)
     int repeat;
 
     char *test_message = 0;
+    if (*test == 0)
+    {
+        dumpRows("\x1b[31mThe current test is empty, returning\x1b[0m", 1, sh_Attrs->numrows);
+        sleep(2);
+        return;
+    }
     /* This could create problems if the file_name is too long. */
     asprintf(&test_message, "The file \x1b[33m%s\x1b[0m contains the following text :\n%s", cTest.fileName, test);
 
