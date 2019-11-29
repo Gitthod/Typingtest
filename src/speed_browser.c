@@ -17,6 +17,7 @@
 #define PASS               0
 #define BROWSE_MARKER      " \x1b[36m<==\x1b[0m"
 #define BROWSE_MARKER_SIZE  13
+#define UNTOUCHED           -1
 
 /* ------------------------------------------------------------------------------------------------------------------ */
 /* ------------------------------------------- Internal Types Definition -------------------------------------------- */
@@ -214,6 +215,8 @@ void selectTest(void)
             int c = 0;
             uint32_t convertToInt = 0;
 
+            /* Init response. */
+            response[0] = UNTOUCHED;
             while (cnt < digits && c != '\r')
             {
                 while (((c = getKey()) < 48 || c > 58)
@@ -239,9 +242,12 @@ void selectTest(void)
                 {
                     moveBrowseCursor(menu_end, menu_end + fileCount - 1, &sh_Attrs->cy, c, sh_Attrs);
                 }
+                /* Enter was pressed. */
                 else
                 {
-                    chosenByCursor = 1;
+                    /* If no number was pressed choose the file under the cursor. */
+                    if ( *response == UNTOUCHED )
+                        chosenByCursor = 1;
                 }
             }
 
