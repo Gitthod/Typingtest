@@ -1,3 +1,4 @@
+#include "argParse.h"
 #include <memory.h>
 #include <raw_term.h>
 #include <speed_test.h>
@@ -11,10 +12,16 @@
 #define IRRELEVANT              0
 #define NOT_APPLICABLE          0
 
+#define ARG0    {"--no-white-spaces","-w", "Automatically skip all the white spaces", argBinary}
+
+static argument arguments[] = {ARG0};
+
 int main(int argc, char** argv)
 {
     /* This function was created to avoid valgrind memory leaks. */
     atexit(freeAll);
+    registerArguments(arguments, sizeof(arguments));
+    parserUserInput(argv, argc);
 
     if (argc > 3)
     {
