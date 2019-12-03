@@ -4,10 +4,34 @@
 #include <stdio.h>
 
 
+/* ------------------------------------------------------------------------------------------------------------------ */
+/* --------------------------------------------- Static Function Prototypes ----------------------------------------- */
+/* ------------------------------------------------------------------------------------------------------------------ */
+
+/* This function will print the way the program can be invoked based on the registered arguments */
+static char * helpMessage(void);
+
+/* Check that the registered arguments are valid */
+/* The function returns a pointer to an error message if 2 arguments have the same names */
+/* In other case it returns a null pointer. */
+static char * validateArguments(void);
+
 /* The function returns the address of the element in registeredArguments array if it exists. */
 /* If it doesn't exist it returns a null pointer. */
 static argument * isArgumentValid(char *argName);
 
+/* ------------------------------------------------------------------------------------------------------------------ */
+/* ------------------------------------------------ Static Variables ------------------------------------------------ */
+/* ------------------------------------------------------------------------------------------------------------------ */
+
+/************** POSITIONAL ARGUMENTS **************/
+/* A pointer to the positional arguments corresponding to their position of invokation */
+static positionalArgument *positionalArguments = 0;
+
+/* The number of the positional arguments */
+static uint32_t numberOfPosArgs = 0;
+
+/************** OPTIONAL ARGUMENTS ****************/
 /* The following array contains the information for every user registered argument. */
 static argument *registeredArguments = 0;
 
@@ -18,30 +42,67 @@ static argValue *registeredValues = 0;
 /* The length of the previous arrays. */
 static uint32_t argumentsLength = 0;
 
-void registerArguments(argument *arguments, uint32_t sizeOfArray)
+/* ------------------------------------------------------------------------------------------------------------------ */
+/* --------------------------------------------- Global Function Definition ----------------------------------------- */
+/* ------------------------------------------------------------------------------------------------------------------ */
+
+char * registerArguments(argument *arguments, uint32_t lengthOfArray)
 {
     /* Initialize the number of arguments. */
-    argumentsLength = sizeOfArray;
+    argumentsLength = lengthOfArray;
 
     /* Allocate memory for the argument structs. */
-    registeredArguments = malloc(sizeOfArray * sizeof(argument));
+    registeredArguments = malloc(lengthOfArray * sizeof(argument));
 
     /* Allocate memory for the values of each argument. */
-    registeredValues = calloc(sizeOfArray , sizeof(argument));
+    registeredValues = calloc(lengthOfArray , sizeof(argument));
 
     /* Populate the array. */
-    for (int i = 0; i < sizeOfArray; i++)
+    for (int i = 0; i < lengthOfArray; i++)
         memcpy(&registeredArguments[i], &arguments[i], sizeof(argument));
+
+    return validateArguments();
 }
 
+void registerPositionalArguments(positionalArgument *arguments, uint32_t lengthOfArray)
+{
+    /* Initialize the number of arguments. */
+    numberOfPosArgs = lengthOfArray;
+
+    /* Allocate memory for the argument structs. */
+    positionalArguments = malloc(lengthOfArray * sizeof(positionalArgument));
+
+    /* Populate the array. */
+    for (int i = 0; i < lengthOfArray; i++)
+        memcpy(&positionalArguments[i], &positionalArguments[i], sizeof(positionalArgument));
+}
 
 char * parserUserInput(char **argv, int argc)
 {
+    /* Index of the positional argument. */
+    uint32_t posIdx = 0;
     for (int i = 1; i < argc; i ++)
     {
-        /* Check if the argument is a switch. */
+
+        /* Every user typed argument that doesn't begin with - is considered a positional argument. */
+        if (argv[i][0] != '-')
+        {
+            if (numberOfPosArgs > posIdx)
+            {
+                positionalArguments[posIdx++].value = argv[i];
+            }
+            else
+            {
+                char *message;
+                asprintf(&message, "The number of positional arguments is %u.\n"
+                                   "This is the extra argument %s", numberOfPosArgs, argv[i]);
+                return message;
+            }
+        }
+
         char *pos = 0;
-        if ((pos = strchr(argv[i], '=')) ==  0)
+        /* Check if the argument is a switch. */
+        if ((pos = strchr(argv[i], '=')) ==  NULL)
         {
             argument *idx = isArgumentValid(argv[i]);
 
@@ -56,7 +117,7 @@ char * parserUserInput(char **argv, int argc)
                 else
                 {
                     char *message;
-                    asprintf(&message, "Error Prasing %s!\n"
+                    asprintf(&message, "Error Parsing %s!\n"
                                        "This argument needs a value.\n",argv[i]);
                     return message;
                 }
@@ -64,11 +125,10 @@ char * parserUserInput(char **argv, int argc)
             else
             {
                 char *message;
-                asprintf(&message, "Error Prasing %s!\n"
+                asprintf(&message, "Error Parsing %s!\n"
                                    "This argument doesn't exist!\n",argv[i]);
                 return message;
             }
-
         }
         else
         {
@@ -109,6 +169,21 @@ char * parserUserInput(char **argv, int argc)
     return 0;
 }
 
+argValue getArgValue(char *name)
+{
+    argument *idx = isArgumentValid(name);
+    uint32_t valueIdx = 0;
+
+    if (idx != 0)
+        valueIdx = (idx - registeredArguments) / sizeof(argument);
+
+    return registeredValues[valueIdx];
+}
+
+/* ------------------------------------------------------------------------------------------------------------------ */
+/* --------------------------------------------- Static Function Definition ----------------------------------------- */
+/* ------------------------------------------------------------------------------------------------------------------ */
+
 static argument * isArgumentValid(char *argName)
 {
     for (int i = 0; i < argumentsLength; i++)
@@ -121,13 +196,54 @@ static argument * isArgumentValid(char *argName)
     return 0;
 }
 
-argValue getArgValue(char *name)
+static char * validateArguments(void)
 {
-    argument *idx = isArgumentValid(name);
-    uint32_t valueIdx = 0;
+    for (int i = 0; i < argumentsLength - 1; i++)
+    {
+        for (int j = i + 1; j < argumentsLength; j++)
+        {
+            if (0 == strcmp(registeredArguments[j].shortName, registeredArguments[i].shortName))
+            {
+                char *message;
+                asprintf(&message, "Error! The following arguments have identical short names:\n"
+                                   "arg%d : %s\n"
+                                   "arg%d : %s\n", i, registeredArguments[i].shortName
+                                                 , j, registeredArguments[j].shortName);
+                return message;
+            }
 
-    if (idx != 0)
-        valueIdx = (idx - registeredArguments) / sizeof(argument);
+            if (0 == strcmp(registeredArguments[j].fullName, registeredArguments[i].fullName))
+            {
+                char *message;
+                asprintf(&message, "Error! The following arguments have identical full names:\n"
+                                   "arg%d : %s\n"
+                                   "arg%d : %s\n", i, registeredArguments[i].fullName
+                                                 , j, registeredArguments[j].fullName);
 
-    return registeredValues[valueIdx];
+                return message;
+            }
+        }
+    }
+
+    return 0;
+}
+
+static char * helpMessage(void)
+{
+    char *message = 0;
+    char *flags = 0;
+
+    uint32_t flagLength = 0;
+    for (int i = 0; i < argumentsLength; i++)
+    {
+        /* +1 exists for the seprating space between the arguments */
+        uint32_t nameLength = strlen(registeredArguments[i].shortName) + 1;
+        flagLength += nameLength;
+        flags = realloc(flags, nameLength);
+        memcpy(flags + flagLength - nameLength, registeredArguments[i].shortName, nameLength - 1);
+        flags[flagLength] = ' ';
+    }
+    asprintf(&message, "Usage example:\n"
+                       "<prog_name> [ %s]", flags );
+
 }
