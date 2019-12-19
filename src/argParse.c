@@ -74,7 +74,7 @@ void registerPositionalArguments(positionalArgument *arguments, uint32_t lengthO
 
     /* Populate the array. */
     for (int i = 0; i < lengthOfArray; i++)
-        memcpy(&positionalArguments[i], &positionalArguments[i], sizeof(positionalArgument));
+        memcpy(&positionalArguments[i], &arguments[i], sizeof(positionalArgument));
 }
 
 char * parserUserInput(char **argv, int argc)
@@ -105,6 +105,9 @@ char * parserUserInput(char **argv, int argc)
         if ((pos = strchr(argv[i], '=')) ==  NULL)
         {
             argument *idx = isArgumentValid(argv[i]);
+
+            if (strcmp("-h", argv[i]) == 0 || strcmp("--help", argv[i]) == 0)
+                return helpMessage();
 
             if (idx != 0)
             {
@@ -230,20 +233,91 @@ static char * validateArguments(void)
 
 static char * helpMessage(void)
 {
-    char *message = 0;
-    char *flags = 0;
+    char     *message             = 0;
+    char     *flags               = calloc(sizeof(char), 1);
+    char     *description         = calloc(sizeof(char), 1);
+    char     *posDescription      = calloc(sizeof(char), 1);
+    char     *positionalArgs      = calloc(sizeof(char), 1);
 
-    uint32_t flagLength = 0;
+    /* Contains the length of the flag names in short form. */
+    uint32_t flagLength           = 0;
+    /* Contains the length of the positional argument names. */
+    uint32_t posLength            = 0;
+    /* Contains the help message for all the optional arguments. */
+    uint32_t descriptionLength    = 0;
+    /* Contains the help message for all the positional arguments. */
+    uint32_t posDescriptionLength = 0;
+
+    for (int i = 0; i < numberOfPosArgs; i++)
+    {
+        /* Holds the explanation of the current positional argument. */
+        char *descriptionPart = 0;
+        uint32_t nameLength = strlen(positionalArguments[i].name);
+        uint32_t descriptionPartLength = 0;
+
+        asprintf(&descriptionPart, "%s\n\t%s\n\n", positionalArguments[i].name, positionalArguments[i].explanation);
+        descriptionPartLength = strlen(descriptionPart);
+
+        posDescriptionLength += descriptionPartLength;
+        posLength += nameLength + 1;
+        posDescription = realloc(posDescription, posDescriptionLength);
+        positionalArgs = realloc(positionalArgs, posLength);
+
+        memcpy(positionalArgs + posLength - (nameLength + 1), positionalArguments[i].name, nameLength);
+        memcpy(posDescription + posDescriptionLength - descriptionPartLength, descriptionPart, descriptionPartLength);
+        free(descriptionPart);
+
+        /* Check whether to terminate or insert a space. */
+        if ( i == argumentsLength - 1)
+        {
+            positionalArgs[posLength - 1] = 0;
+        }
+        else
+            positionalArgs[posLength - 1] = ' ';
+    }
+
     for (int i = 0; i < argumentsLength; i++)
     {
-        /* +1 exists for the seprating space between the arguments */
-        uint32_t nameLength = strlen(registeredArguments[i].shortName) + 1;
-        flagLength += nameLength;
-        flags = realloc(flags, nameLength);
-        memcpy(flags + flagLength - nameLength, registeredArguments[i].shortName, nameLength - 1);
-        flags[flagLength] = ' ';
-    }
-    asprintf(&message, "Usage example:\n"
-                       "<prog_name> [ %s]", flags );
+        char *descriptionPart = 0;
+        uint32_t shortNameLength = strlen(registeredArguments[i].shortName);
+        uint32_t descriptionPartLength = 0;
 
+
+        asprintf(&descriptionPart, "%s, %s\n\t%s\n\n", registeredArguments[i].shortName, registeredArguments[i].fullName,
+                registeredArguments[i].explanation);
+        descriptionPartLength = strlen(descriptionPart);
+
+        /* The plus one is needed either to insert space between the arguments or null terminate. */
+        flagLength += shortNameLength + 1;
+        descriptionLength += descriptionPartLength;
+
+        flags = realloc(flags, flagLength);
+        description = realloc(description, descriptionLength);
+
+        memcpy(flags + flagLength - (shortNameLength + 1), registeredArguments[i].shortName, shortNameLength);
+        memcpy(description + descriptionLength - descriptionPartLength, descriptionPart, descriptionPartLength);
+
+        /* Free the partial description. */
+        free(descriptionPart);
+
+        /* Check whether to terminate or insert a space. */
+        if ( i == argumentsLength - 1)
+        {
+            flags[flagLength - 1] = 0;
+            /* Remove the last newline. */
+            description[descriptionLength - 1] = 0;
+        }
+        else
+            flags[flagLength - 1] = ' ';
+    }
+
+    asprintf(&message, "Usage example:\n"
+                       "<prog_name> [%s] %s\n\n%s%s", flags, positionalArgs, posDescription, description);
+
+    free(flags);
+    free(description);
+    free(posDescription);
+    free(positionalArgs);
+
+    return message;
 }
