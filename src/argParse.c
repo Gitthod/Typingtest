@@ -37,10 +37,13 @@ static argument *registeredArguments = 0;
 
 /* The following array is correspondent to the previous array but it contains the values of each argument. */
 /* If an argument is in position i in the previous array then its value is in position i in the next array. */
-static argValue *registeredValues = 0;
+static char **registeredValues = 0;
 
 /* The length of the previous arrays. */
 static uint32_t argumentsLength = 0;
+
+/* Reserved address to denote an enabled switch. */
+static char c[1];
 
 /* ------------------------------------------------------------------------------------------------------------------ */
 /* --------------------------------------------- Global Function Definition ----------------------------------------- */
@@ -55,7 +58,7 @@ char * registerArguments(argument *arguments, uint32_t lengthOfArray)
     registeredArguments = malloc(lengthOfArray * sizeof(argument));
 
     /* Allocate memory for the values of each argument. */
-    registeredValues = calloc(lengthOfArray , sizeof(argument));
+    registeredValues = calloc(lengthOfArray , sizeof(char*));
 
     /* Populate the array. */
     for (int i = 0; i < lengthOfArray; i++)
@@ -64,8 +67,23 @@ char * registerArguments(argument *arguments, uint32_t lengthOfArray)
     return validateArguments();
 }
 
-void registerPositionalArguments(positionalArgument *arguments, uint32_t lengthOfArray)
+char* registerPositionalArguments(positionalArgument *arguments, uint32_t lengthOfArray)
 {
+    for (int i = 0; i < lengthOfArray; i++)
+    {
+        for (int j = i + 1; j < lengthOfArray; j++)
+        {
+            if (strcmp(arguments[i].name, arguments[j].name) == 0)
+            {
+                char *message;
+                asprintf(&message, "Error! The following arguments have identical names:"
+                                   "arg%d : %s\n"
+                                   "arg%d : %s\n", i, arguments[i].name, j, arguments[j].name);
+                return message;
+            }
+        }
+    }
+
     /* Initialize the number of arguments. */
     numberOfPosArgs = lengthOfArray;
 
@@ -75,6 +93,8 @@ void registerPositionalArguments(positionalArgument *arguments, uint32_t lengthO
     /* Populate the array. */
     for (int i = 0; i < lengthOfArray; i++)
         memcpy(&positionalArguments[i], &arguments[i], sizeof(positionalArgument));
+
+    return NO_ERROR;
 }
 
 char * parserUserInput(char **argv, int argc)
@@ -115,7 +135,7 @@ char * parserUserInput(char **argv, int argc)
                 {
                     uint32_t valueIdx = 0;
                     valueIdx = (idx - registeredArguments) / sizeof(argument);
-                    registeredValues[valueIdx].switchStatus = 1;
+                    registeredValues[valueIdx] = c;
                 }
                 else
                 {
@@ -149,7 +169,7 @@ char * parserUserInput(char **argv, int argc)
                 {
                     uint32_t valueIdx = 0;
                     valueIdx = (idx - registeredArguments) / sizeof(argument);
-                    registeredValues[valueIdx].value = pos + 1;
+                    registeredValues[valueIdx] = pos + 1;
                 }
                 else
                 {
@@ -174,13 +194,25 @@ char * parserUserInput(char **argv, int argc)
 
 argValue getArgValue(char *name)
 {
-    argument *idx = isArgumentValid(name);
-    uint32_t valueIdx = 0;
+    argValue res = {ARG_NOT_OK, NULL};
+    for (int i = 0; i < numberOfPosArgs; i++)
+        if (strcmp(positionalArguments[i].name, name) == 0)
+        {
+            res.pointerValid = ARG_OK;
+            res.value = positionalArguments[i].name;
+            return res;
+        }
 
-    if (idx != 0)
-        valueIdx = (idx - registeredArguments) / sizeof(argument);
+    for (int i = 0; i < argumentsLength; i++)
+        if (strcmp(registeredArguments[i].fullName, name) == 0 ||
+            strcmp(registeredArguments[i].shortName, name) == 0)
+        {
+            res.pointerValid = ARG_OK;
+            res.value = registeredValues[i];
+            return res;
+        }
 
-    return registeredValues[valueIdx];
+    return res;
 }
 
 /* ------------------------------------------------------------------------------------------------------------------ */
@@ -228,7 +260,7 @@ static char * validateArguments(void)
         }
     }
 
-    return 0;
+    return NO_ERROR;
 }
 
 static char * helpMessage(void)

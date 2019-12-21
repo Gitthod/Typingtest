@@ -3,18 +3,19 @@
 #include <stdint.h>
 
 #define UNITIALIZED   0U
-#define ARG_OK        0U
+#define ARG_OK        1U
 #define ARG_NOT_OK    0U
-
-typedef union argValue {
-    uint32_t switchStatus;
-    char *value;
-} argValue;
+#define NO_ERROR      0U
 
 typedef enum argType {
     argBinary,
     argVariable
 } argType;
+
+typedef struct {
+    int pointerValid;
+    char *value;
+} argValue;
 
 typedef struct argument {
     char *fullName;
@@ -31,12 +32,12 @@ typedef struct positionalArgument {
 } positionalArgument;
 
 /* This function registers the optional arguments which can be flags or optional named arguments. */
-char * registerArguments(argument *arguments, uint32_t lengthOfArray);
+char *registerArguments(argument *arguments, uint32_t lengthOfArray);
 
 /* This funtion registers the positional and obligatory arguments of the function. */
-void registerPositionalArguments(positionalArgument *arguments, uint32_t lengthOfArray);
+char *registerPositionalArguments(positionalArgument *arguments, uint32_t lengthOfArray);
 
-char * parserUserInput(char **argv, int argc);
+char *parserUserInput(char **argv, int argc);
 
 argValue getArgValue(char *name);
 #endif
