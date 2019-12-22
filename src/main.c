@@ -20,7 +20,7 @@ int main(int argc, char** argv)
 {
     /* This function was created to avoid valgrind memory leaks. */
     atexit(freeAll);
-    registerArguments(arguments, sizeof(arguments) / sizeof(argument));
+    registerArguments("typing test",arguments, sizeof(arguments), 0, 0);
     parserUserInput(argv, argc);
 
     if (argc > 3)

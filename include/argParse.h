@@ -12,11 +12,6 @@ typedef enum argType {
     argVariable
 } argType;
 
-typedef struct {
-    int pointerValid;
-    char *value;
-} argValue;
-
 typedef struct argument {
     char *fullName;
     char *shortName;
@@ -32,12 +27,10 @@ typedef struct positionalArgument {
 } positionalArgument;
 
 /* This function registers the optional arguments which can be flags or optional named arguments. */
-char *registerArguments(argument *arguments, uint32_t lengthOfArray);
+void registerArguments(char *description, argument *arguments, uint32_t argSize,
+                         positionalArgument *posArguments, uint32_t posArgSize);
 
-/* This funtion registers the positional and obligatory arguments of the function. */
-char *registerPositionalArguments(positionalArgument *arguments, uint32_t lengthOfArray);
+void parserUserInput(char **argv, int argc);
 
-char *parserUserInput(char **argv, int argc);
-
-argValue getArgValue(char *name);
+char *getArgValue(char *name);
 #endif
