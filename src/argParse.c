@@ -3,7 +3,6 @@
 #include "stdlib.h"
 #include <stdio.h>
 
-
 /* ------------------------------------------------------------------------------------------------------------------ */
 /* --------------------------------------------- Static Function Prototypes ----------------------------------------- */
 /* ------------------------------------------------------------------------------------------------------------------ */
@@ -35,15 +34,8 @@ static uint32_t numberOfPosArgs = 0;
 /* The following array contains the information for every user registered argument. */
 static argument *registeredArguments = 0;
 
-/* The following array is correspondent to the previous array but it contains the values of each argument. */
-/* If an argument is in position i in the previous array then its value is in position i in the next array. */
-static char **registeredValues = 0;
-
 /* The length of the previous arrays. */
 static uint32_t argumentsLength = 0;
-
-/* Reserved address to denote an enabled switch. */
-static char c[1];
 
 /* Check if initialization is done. */
 static uint8_t initDone;
@@ -63,9 +55,6 @@ void registerArguments(char *description, argument *arguments, uint32_t argSize,
 
     /* Allocate memory for the argument structs. */
     registeredArguments = malloc(argumentsLength * sizeof(argument));
-
-    /* Allocate memory for the values of each argument. */
-    registeredValues = calloc(argumentsLength , sizeof(char*));
 
     if (initDone)
     {
@@ -138,9 +127,7 @@ void parserUserInput(char **argv, int argc)
             {
                 if (idx->type == argBinary)
                 {
-                    uint32_t valueIdx = 0;
-                    valueIdx = (idx - registeredArguments) / sizeof(argument);
-                    registeredValues[valueIdx] = c;
+                    idx->value = NOT_NULL_ARG;
                 }
                 else
                 {
@@ -170,9 +157,7 @@ void parserUserInput(char **argv, int argc)
             {
                 if (idx->type == argVariable)
                 {
-                    uint32_t valueIdx = 0;
-                    valueIdx = (idx - registeredArguments) / sizeof(argument);
-                    registeredValues[valueIdx] = pos + 1;
+                    idx->value = pos + 1;
                 }
                 else
                 {
@@ -195,12 +180,12 @@ char *getArgValue(char *name)
 {
     for (int i = 0; i < numberOfPosArgs; i++)
         if (strcmp(positionalArguments[i].name, name) == 0)
-            return positionalArguments[i].name;
+            return positionalArguments[i].value;
 
     for (int i = 0; i < argumentsLength; i++)
         if (strcmp(registeredArguments[i].fullName, name) == 0 ||
             strcmp(registeredArguments[i].shortName, name) == 0)
-            return  registeredValues[i];
+            return  registeredArguments[i].value;
 
     fprintf(stderr, "No argument with name %s is registered\n", name);
     exit(EXIT_FAILURE);
