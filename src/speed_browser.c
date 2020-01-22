@@ -17,7 +17,6 @@
 #define PASS               0
 #define BROWSE_MARKER      " \x1b[36m<==\x1b[0m"
 #define BROWSE_MARKER_SIZE  13
-#define UNTOUCHED           -1
 
 /* ------------------------------------------------------------------------------------------------------------------ */
 /* ------------------------------------------- Internal Types Definition -------------------------------------------- */
@@ -41,6 +40,9 @@ static char *bannedEndings[] = {".swp", ".swo" };
 
 /* Filter out files that start with the following patterns. */
 static char *bannedBeginnings[] = {"."};
+
+/* The default directory to be opened containing typing tests. */
+static char *testDir = "tests";
 
 /* ------------------------------------------------------------------------------------------------------------------ */
 /* -------------------------------------------- Static Function Declarations ---------------------------------------- */
@@ -138,7 +140,6 @@ void selectTest(void)
 {
     int menu_start;
     currentTest *cTest = getCurrentTest();
-    char *testDir = "tests";
     char *message;
     int menu_end;
 
@@ -151,37 +152,46 @@ void selectTest(void)
     }
     menu_start = sh_Attrs->numrows;
 
-    dumpRows(menu, 0, sh_Attrs->numrows);
+    dumpRows(menu, 0, menu_start);
     menu_end = sh_Attrs->numrows;
 
     uint8_t still_browsing = 0;
     DIR *d;
     struct dirent *dir;
     char *baseWorkingDir = getcwd(NULL, 0);
-    d = opendir(testDir);
+    char *prevDir = "./";
 
-    chdir(testDir);
+    if ( (d = opendir(testDir)) )
+        chdir(testDir);
+    else
+        d = opendir("./");
 
-    do {
+    do
+    {
         uint32_t fileCount = 0;
         /* Zero initialize files array. */
         char *files[1000] = {};
-        struct stat statbuf = {0};
+        struct stat statbuf = {};
 
         if (d)
         {
+            char *test_message;
+            asprintf(&test_message, "The current dir is\x1b[34m\t\t%s\x1b[0m", getcwd(NULL, 0));
+            dumpRows(test_message, 1, sh_Attrs->numrows);
+            free(test_message);
+
             while ((dir = readdir(d)) != NULL)
             {
                 if (filterFiles(dir->d_name) == PASS)
                 {
-                    char type = 'f';
+                    char *type = "\x1b[32mf\x1b[0m";
 
                     stat(dir->d_name, &statbuf);
 
                     if (S_ISDIR(statbuf.st_mode))
-                        type = 'd';
+                        type =  "\x1b[34md\x1b[0m";
 
-                    asprintf(&message, "%d -> %s [%c]\n", fileCount, dir->d_name, type);
+                    asprintf(&message, "%d -> %s [%s]\n", fileCount, dir->d_name, type);
                     dumpRows(message, 0, sh_Attrs->numrows);
                     free(message);
 
@@ -200,8 +210,9 @@ void selectTest(void)
 
             rowAppendString(&sh_Attrs->row[sh_Attrs->cy - 1], BROWSE_MARKER, BROWSE_MARKER_SIZE);
             sh_Attrs->cy -= 1;
-            setAppMessage("Type a number between 0 - %d, or press Enter to select the test under the cursor\n",
-                    fileCount);
+            setAppMessage("Type a number between 0 - %d, or press Enter to select the test under the cursor.\n"
+                          "Press h to go to the parent dir (../) or l to go to the previous one.\n",
+                          fileCount);
             appendAppMessage("You typed:");
 
             /* Count how many digits fileCount has. */
@@ -215,21 +226,21 @@ void selectTest(void)
             int c = 0;
             uint32_t convertToInt = 0;
 
-            /* Init response. */
-            response[0] = UNTOUCHED;
-            while (cnt < digits && c != '\r')
+            while (cnt < digits && c != '\r' && c != 'l' && c != 'h')
             {
                 while (((c = getKey()) < 48 || c > 58)
-                       && c != '\r'
-                       && c != ARROW_DOWN
-                       && c != 'j'
-                       && c != ARROW_UP
-                       && c != 'k'
+                        && c != '\r'
+                        && c != ARROW_DOWN
+                        && c != 'j'
+                        && c != ARROW_UP
+                        && c != 'k'
+                        && c != 'l' /* Go inside the current directory or open the current file. */
+                        && c != 'h' /* Go back one directory. */
                       );
 
                 if( c >= 48 && c < 58 )
                 {
-                    response[cnt++] = c - 48;
+                    response[cnt++] = c;
                     /* c has a size of int due to this app's limitations it's guaranteed that it will be null terminated.
                      */
                     appendAppMessage((char *)&c);
@@ -240,22 +251,49 @@ void selectTest(void)
                         || c == 'k'
                         )
                 {
-                    moveBrowseCursor(menu_end, menu_end + fileCount - 1, &sh_Attrs->cy, c, sh_Attrs);
+                    moveBrowseCursor(menu_end + 1, menu_end + fileCount, &sh_Attrs->cy, c, sh_Attrs);
                 }
-                /* Enter was pressed. */
-                else
+                /* Enter  or l was pressed. */
+                else if ( c == '\r' )
                 {
                     /* If no number was pressed choose the file under the cursor. */
-                    if ( *response == UNTOUCHED )
+                    if ( cnt == 0 )
                         chosenByCursor = 1;
+                }
+                else if ( c == 'h' )
+                {
+                    closedir(d);
+                    prevDir = getcwd(NULL, 0);
+                    d = opendir("..");
+                    chdir("..");
+                    still_browsing = 1;
+                    delRows(menu_end);
+                }
+                else if ( c == 'l' )
+                {
+                    char *tmp = prevDir;
+                    prevDir = getcwd(NULL, 0);
+                    closedir(d);
+                    d = opendir(tmp);
+                    chdir(tmp);
+                    still_browsing = 1;
+                    delRows(menu_end);
+                }
+                else
+                {
+                    /* Shouldn't be able to go there. */
+                    pexit("selectTest");
                 }
             }
 
+            if (sh_Attrs->cy == sh_Attrs->numrows)
+                continue;
+
             if ( !chosenByCursor )
-                for (cnt = 0; cnt < digits; cnt++)
-                    convertToInt = 10 * convertToInt + response[cnt];
+                for (int i = 0; i < cnt; i++)
+                    convertToInt = 10 * convertToInt + response[i] - 48;
             else
-                convertToInt = sh_Attrs->cy - menu_end;
+                convertToInt = sh_Attrs->cy - (menu_end + 1);
 
             free(response);
 
@@ -266,6 +304,7 @@ void selectTest(void)
                 if (S_ISDIR(statbuf.st_mode))
                 {
                     closedir(d);
+                    prevDir = getcwd(NULL, 0);
                     d = opendir(files[convertToInt]);
                     chdir(files[convertToInt]);
                     still_browsing = 1;
@@ -315,6 +354,15 @@ void selectTest(void)
                     delRows(menu_start);
                 }
             }
+            else
+            {
+                still_browsing = 1;
+            }
         }
     } while ( still_browsing );
+}
+
+void changeTestDir(char *dirName)
+{
+    testDir = dirName;
 }

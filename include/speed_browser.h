@@ -10,4 +10,6 @@
  */
 void selectTest(void);
 
+/* Set the directory to open when browsing. */
+void changeTestDir(char *dirName);
 #endif
