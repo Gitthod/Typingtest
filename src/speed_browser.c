@@ -7,16 +7,18 @@
 #include <raw_term.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
 
 /* ------------------------------------------------------------------------------------------------------------------ */
 /* ---------------------------------------------------- Defines ----------------------------------------------------- */
 /* ------------------------------------------------------------------------------------------------------------------ */
 
-#define FILTERED_OUT       1
-#define PASS               0
-#define BROWSE_MARKER      " \x1b[36m<==\x1b[0m"
-#define BROWSE_MARKER_SIZE  13
+#define FILTERED_OUT            1
+#define PASS                    0
+#define BROWSE_MARKER           " \x1b[36m<==\x1b[0m"
+#define BROWSE_MARKER_SIZE      13
+#define MAXIMUM_FILENAME_LENGTH 255
 
 /* ------------------------------------------------------------------------------------------------------------------ */
 /* ------------------------------------------- Internal Types Definition -------------------------------------------- */
@@ -142,6 +144,7 @@ void selectTest(void)
     currentTest *cTest = getCurrentTest();
     char *message;
     int menu_end;
+    uint8_t skip = 0;
 
     char *menu = "Select the file containing the text you want to be tested upon\n"
                  "##############################################################\n";
@@ -159,7 +162,7 @@ void selectTest(void)
     DIR *d;
     struct dirent *dir;
     char *baseWorkingDir = getcwd(NULL, 0);
-    char *prevDir = "./";
+    char *mostRecentLongestPath = 0;
 
     if ( (d = opendir(testDir)) )
         chdir(testDir);
@@ -234,8 +237,8 @@ void selectTest(void)
                         && c != 'j'
                         && c != ARROW_UP
                         && c != 'k'
-                        && c != 'l' /* Go inside the current directory or open the current file. */
-                        && c != 'h' /* Go back one directory. */
+                        && c != 'l' /* Go to the previous directory. */
+                        && c != 'h' /* Go to the parent directory. */
                       );
 
                 if( c >= 48 && c < 58 )
@@ -263,7 +266,6 @@ void selectTest(void)
                 else if ( c == 'h' )
                 {
                     closedir(d);
-                    prevDir = getcwd(NULL, 0);
                     d = opendir("..");
                     chdir("..");
                     still_browsing = 1;
@@ -271,13 +273,52 @@ void selectTest(void)
                 }
                 else if ( c == 'l' )
                 {
-                    char *tmp = prevDir;
-                    prevDir = getcwd(NULL, 0);
-                    closedir(d);
-                    d = opendir(tmp);
-                    chdir(tmp);
+                    char *curDir = getcwd(NULL, 0);
+                    char *idxC = curDir;
+                    char *idxLP = mostRecentLongestPath;
+                    char *nextDir = 0;
+
+                    if (mostRecentLongestPath != 0 &&
+                        strcmp(curDir, mostRecentLongestPath) != 0)
+                    {
+                        while (*idxC++ == *idxLP++);
+
+                        if (*(idxC - 1) == 0)
+                        {
+                            if ( *(idxLP - 1) == '/')
+                            {
+                                nextDir = calloc(MAXIMUM_FILENAME_LENGTH + 1, 1);
+                                char *tmpIdx = idxLP;
+                                while (*tmpIdx != '/' && *tmpIdx != 0)
+                                    tmpIdx++;
+
+                                memcpy(nextDir, idxLP, tmpIdx - idxLP);
+                                free(curDir);
+                            }
+                            else if ( *(idxLP - 1 ) == 0)
+                            {
+                                nextDir = curDir;
+                            }
+                            else
+                            {
+                                pexit("Browse error");
+                            }
+                        }
+                    }
+                    else
+                        free(curDir);
+
                     still_browsing = 1;
-                    delRows(menu_end);
+                    if (nextDir && *nextDir)
+                    {
+                        closedir(d);
+                        d = opendir(nextDir);
+                        chdir(nextDir);
+                        free(nextDir);
+                        delRows(menu_end);
+                    }
+                    else
+                        skip = 1;
                 }
                 else
                 {
@@ -286,8 +327,12 @@ void selectTest(void)
                 }
             }
 
-            if (sh_Attrs->cy == sh_Attrs->numrows)
+            /* TODO: Describe this line. */
+            if (sh_Attrs->cy == sh_Attrs->numrows || skip)
+            {
+                skip = 0;
                 continue;
+            }
 
             if ( !chosenByCursor )
                 for (int i = 0; i < cnt; i++)
@@ -304,9 +349,19 @@ void selectTest(void)
                 if (S_ISDIR(statbuf.st_mode))
                 {
                     closedir(d);
-                    prevDir = getcwd(NULL, 0);
                     d = opendir(files[convertToInt]);
                     chdir(files[convertToInt]);
+
+                    char *curDir = getcwd(NULL, 0);
+                    /* Check if the current directory is a subdirectory of the Longest Path. */
+                    if ( mostRecentLongestPath == 0 || strncmp(curDir, mostRecentLongestPath, strlen(curDir)))
+                    {
+                        free(mostRecentLongestPath);
+                        mostRecentLongestPath = curDir;
+                    }
+                    else
+                        free(curDir);
+
                     still_browsing = 1;
                     delRows(menu_end);
                 }
@@ -349,6 +404,8 @@ void selectTest(void)
 
                     /* This pointer needs to be freed by us. */
                     free(baseWorkingDir);
+
+                    free(mostRecentLongestPath);
 
                     /* Delete all the outpute associated with this function . */
                     delRows(menu_start);
