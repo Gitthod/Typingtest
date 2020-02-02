@@ -144,7 +144,6 @@ void selectTest(void)
     currentTest *cTest = getCurrentTest();
     char *message;
     int menu_end;
-    uint8_t skip = 0;
 
     char *menu = "Select the file containing the text you want to be tested upon\n"
                  "##############################################################\n";
@@ -169,19 +168,28 @@ void selectTest(void)
     else
         d = opendir("./");
 
+    mostRecentLongestPath = getcwd(NULL, 0);
+
+LOOP_START:
     do
     {
         uint32_t fileCount = 0;
         /* Zero initialize files array. */
         char *files[1000] = {};
         struct stat statbuf = {};
+        still_browsing = 0;
+        /*TODO: free all files pointers if needed. */
 
+        delRows(menu_end);
         if (d)
         {
             char *test_message;
             asprintf(&test_message, "The current dir is\x1b[34m\t\t%s\x1b[0m", getcwd(NULL, 0));
             dumpRows(test_message, 1, sh_Attrs->numrows);
             free(test_message);
+
+            /* This is required in the cased that d wasn't updated and the process is repeated. */
+            rewinddir(d);
 
             while ((dir = readdir(d)) != NULL)
             {
@@ -202,6 +210,10 @@ void selectTest(void)
                     files[fileCount++] = dir->d_name;
                 }
             }
+        }
+        else
+        {
+            pexit("Directory doesn't exist\n");
         }
 
         /* Check the choice. */
@@ -268,8 +280,7 @@ void selectTest(void)
                     closedir(d);
                     d = opendir("..");
                     chdir("..");
-                    still_browsing = 1;
-                    delRows(menu_end);
+                    goto LOOP_START;
                 }
                 else if ( c == 'l' )
                 {
@@ -308,30 +319,21 @@ void selectTest(void)
                     else
                         free(curDir);
 
-                    still_browsing = 1;
                     if (nextDir && *nextDir)
                     {
                         closedir(d);
                         d = opendir(nextDir);
                         chdir(nextDir);
                         free(nextDir);
-                        delRows(menu_end);
                     }
-                    else
-                        skip = 1;
+
+                        goto LOOP_START;
                 }
                 else
                 {
                     /* Shouldn't be able to go there. */
                     pexit("selectTest");
                 }
-            }
-
-            /* TODO: Describe this line. */
-            if (sh_Attrs->cy == sh_Attrs->numrows || skip)
-            {
-                skip = 0;
-                continue;
             }
 
             if ( !chosenByCursor )
@@ -363,7 +365,6 @@ void selectTest(void)
                         free(curDir);
 
                     still_browsing = 1;
-                    delRows(menu_end);
                 }
                 else
                 {

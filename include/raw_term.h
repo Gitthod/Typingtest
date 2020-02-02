@@ -61,7 +61,7 @@ typedef struct tRow
 typedef struct termAttributes
 {
     int cx, cy;
-    /* rx stand for the position after translating the tabs to spaces */
+    /* rx stands for the position after translating the tabs to spaces */
     int rx;
     int rowoff;
     int coloff;
