@@ -254,6 +254,9 @@ static void custom_test(char *test, char *test_name)
         int idx = 0;
         float test_time = 0;
         float cpm = 0;
+        /* By pressing CTRL + T/t you can skip the current line, all its characters will be summed in the following
+         * variable. */
+        uint32_t skipped_Characters = 0;
         repeat = 0;
 START:
         idx = 0;
@@ -338,7 +341,7 @@ START:
             gettimeofday(&end, NULL);
             timersub(&end, &start, &result);
             test_time = result.tv_sec + (float)result.tv_usec / 1000000;
-            cpm = (idx - whiteSpace)/ test_time * 60;
+            cpm = (idx - whiteSpace - skipped_Characters) / test_time * 60;
 
             if (cpm <= 200.0)
                 /* RED */
@@ -363,11 +366,10 @@ START:
                 colorCode = 91;
 
             setAppMessage("\x1b[%dmYour current CPM is : %.2f | \x1b[37mMistakes(Accuracy) : %d(%.2f\%)", colorCode, cpm,
-                    mistakes, (float)mistakes / idx * 100);
+                    mistakes, (float) mistakes / (idx - skipped_Characters) * 100);
             c = getKey();
             if (c != test[idx] && (c != '\r' || test[idx] != '\n'))
             {
-                mistakes++;
 
                 if (CTRL_KEY('r') == c)
                 {
@@ -383,6 +385,22 @@ START:
                     sleep(1);
                     return;
                 }
+                else if (CTRL_KEY('t') == c)
+                {
+                    /* Calculate the skipped characters from the current line. The extra character is the implied \n at
+                     * the end of each line. */
+                    idx +=  sh_Attrs->row[test_offset - (PREVIEW_LINES + 2)].size - sh_Attrs->cx + 1;
+                    skipped_Characters += sh_Attrs->row[test_offset - (PREVIEW_LINES + 2)].size - sh_Attrs->cx + 1;
+                    /* Delete the current line of the typing test. */
+                    delRow(test_offset - (PREVIEW_LINES + 2));
+
+                    /* -4 is the distance between the typing line and the last line of the test. */
+                    size_read += dumpRows(test_message + size_read, 1, test_offset - 4);
+                    delRows(test_offset);
+                    continue;
+                }
+
+                mistakes++;
             }
             else
             {
