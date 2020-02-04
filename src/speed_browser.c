@@ -175,10 +175,10 @@ LOOP_START:
     {
         uint32_t fileCount = 0;
         /* Zero initialize files array. */
+        /* These pointers don't need to be freed. */
         char *files[1000] = {};
         struct stat statbuf = {};
         still_browsing = 0;
-        /*TODO: free all files pointers if needed. */
 
         delRows(menu_end);
         if (d)
@@ -294,26 +294,23 @@ LOOP_START:
                     {
                         while (*idxC++ == *idxLP++);
 
-                        if (*(idxC - 1) == 0)
+                        if ( *(idxLP - 1) != 0)
                         {
-                            if ( *(idxLP - 1) == '/')
-                            {
-                                nextDir = calloc(MAXIMUM_FILENAME_LENGTH + 1, 1);
-                                char *tmpIdx = idxLP;
-                                while (*tmpIdx != '/' && *tmpIdx != 0)
-                                    tmpIdx++;
+                            /* This covers the edge case where the curDir ends with / */
+                            /* This is only possible when the current dir is the root dir */
+                            if (*(idxLP - 2) == '/')
+                                idxLP--;
+                            nextDir = calloc(MAXIMUM_FILENAME_LENGTH + 1, 1);
+                            char *tmpIdx = idxLP;
+                            while (*tmpIdx != '/' && *tmpIdx != 0)
+                                tmpIdx++;
 
-                                memcpy(nextDir, idxLP, tmpIdx - idxLP);
-                                free(curDir);
-                            }
-                            else if ( *(idxLP - 1 ) == 0)
-                            {
-                                nextDir = curDir;
-                            }
-                            else
-                            {
-                                pexit("Browse error");
-                            }
+                            memcpy(nextDir, idxLP, tmpIdx - idxLP);
+                            free(curDir);
+                        }
+                        else
+                        {
+                            nextDir = curDir;
                         }
                     }
                     else
@@ -323,11 +320,15 @@ LOOP_START:
                     {
                         closedir(d);
                         d = opendir(nextDir);
+                        if (d == 0)
+                        {
+                            pexit("Couldn't open %s directory\n", nextDir);
+                        }
                         chdir(nextDir);
                         free(nextDir);
                     }
 
-                        goto LOOP_START;
+                    goto LOOP_START;
                 }
                 else
                 {

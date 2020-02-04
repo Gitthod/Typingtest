@@ -29,8 +29,6 @@ static pthread_t appMessageBar;
 static pthread_t TcustomCursor;
 /* When this is set to 0 the thread that refreshes the screen will exit. */
 static int th_run = 1;
-/* Save some error messages here. */
-static char error_messages[300];
 /* Is 1 if there was some insert or delete operation. Goes to 0 after the screen is updated. */
 static int dirty;
 /* Enable or disable the custom cursor.*/
@@ -475,7 +473,7 @@ static void disableRawMode(void)
 
     /* Re-enable the cursor. */
     write(STDOUT_FILENO,"\x1b[?25h", 6);
-    printf("%s\r", error_messages);
+
     delRows(0);
     free(E.row);
 
@@ -575,16 +573,15 @@ static void drawRows(tBuf *tB)
 /* ----------------------------------------- Global Function Implementations ---------------------------------------- */
 /* ------------------------------------------------------------------------------------------------------------------ */
 
-void pexit(const char *s)
+void pexit(const char *s, ...)
 {
-    int idx = 0;
+    va_list arg;
+    va_start(arg, s);
     /*
-     * Write a string to stderr  and also copy to the static array for errors.
-     * Writing to stderr allows to save errors by redirection
+     * Write a string to stderr. This allows to save errors by redirection.
      * For example <prog_name> <args ..> 2 >> errors
      */
-    fputs(s, stderr);
-    while ((error_messages[idx++] = *s++));
+    vfprintf(stderr, s, arg);
 
     exit(1);
 }

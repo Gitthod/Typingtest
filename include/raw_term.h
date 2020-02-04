@@ -155,7 +155,7 @@ int dumpRows(char *string, int maxLines, int line);
 /*
  * leaves an error msg point by s, and then exits the program using exit()
  */
-void pexit(const char *s);
+void pexit(const char *s, ...);
 
 /*
  * Return the address of the terminal attributes.
