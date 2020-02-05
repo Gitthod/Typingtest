@@ -184,7 +184,7 @@ LOOP_START:
         if (d)
         {
             char *test_message;
-            asprintf(&test_message, "The current dir is\x1b[34m\t\t%s\x1b[0m", getcwd(NULL, 0));
+            asprintf(&test_message, "The current dir is\x1b[36m\t\t%s\x1b[0m", getcwd(NULL, 0));
             dumpRows(test_message, 1, sh_Attrs->numrows);
             free(test_message);
 
@@ -200,7 +200,7 @@ LOOP_START:
                     stat(dir->d_name, &statbuf);
 
                     if (S_ISDIR(statbuf.st_mode))
-                        type =  "\x1b[34md\x1b[0m";
+                        type =  "\x1b[36md\x1b[0m";
 
                     asprintf(&message, "%d -> %s [%s]\n", fileCount, dir->d_name, type);
                     dumpRows(message, 0, sh_Attrs->numrows);
