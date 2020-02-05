@@ -360,3 +360,9 @@ static void helpMessage(char *progName)
     free(positionalArgs);
     exit(EXIT_SUCCESS);
 }
+
+void freeArgs(void)
+{
+    free(positionalArguments);
+    free(registeredArguments);
+}

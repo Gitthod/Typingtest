@@ -184,9 +184,11 @@ LOOP_START:
         if (d)
         {
             char *test_message;
-            asprintf(&test_message, "The current dir is\x1b[36m\t\t%s\x1b[0m", getcwd(NULL, 0));
+            char *curDir = getcwd(NULL, 0); /* the getcwd pointer needs to be freed. */
+            asprintf(&test_message, "The current dir is\x1b[36m\t\t%s\x1b[0m", curDir);
             dumpRows(test_message, 1, sh_Attrs->numrows);
             free(test_message);
+            free(curDir);
 
             /* This is required in the cased that d wasn't updated and the process is repeated. */
             rewinddir(d);
@@ -280,6 +282,8 @@ LOOP_START:
                     closedir(d);
                     d = opendir("..");
                     chdir("..");
+                    /* Prevent goto memory leak. */
+                    free(response);
                     goto LOOP_START;
                 }
                 else if ( c == 'l' )
@@ -328,6 +332,8 @@ LOOP_START:
                         free(nextDir);
                     }
 
+                    /* Prevent goto memory leak. */
+                    free(response);
                     goto LOOP_START;
                 }
                 else
@@ -357,7 +363,7 @@ LOOP_START:
 
                     char *curDir = getcwd(NULL, 0);
                     /* Check if the current directory is a subdirectory of the Longest Path. */
-                    if ( mostRecentLongestPath == 0 || strncmp(curDir, mostRecentLongestPath, strlen(curDir)))
+                    if ( mostRecentLongestPath == 0 || strncmp(curDir, mostRecentLongestPath, strlen(curDir)) != 0)
                     {
                         free(mostRecentLongestPath);
                         mostRecentLongestPath = curDir;
@@ -404,9 +410,8 @@ LOOP_START:
                     /* Return to the original directory. */
                     chdir(baseWorkingDir);
 
-                    /* This pointer needs to be freed by us. */
+                    /* These pointers need to be freed by us. */
                     free(baseWorkingDir);
-
                     free(mostRecentLongestPath);
 
                     /* Delete all the outpute associated with this function . */

@@ -50,7 +50,10 @@ void registerArguments(char *description, argument *arguments, uint32_t argSize,
 /* All arguments default to 0 values if they are not defined by the user. */
 void parserUserInput(char **argv, int argc);
 
-/* This function returns the value of the argument char *name. If argument name isn't valid the program will be 
+/* This function returns the value of the argument char *name. If argument name isn't valid the program will be
    terminated. */
 char *getArgValue(char *name);
+
+/* Free the memory used by the argument parser. */
+void freeArgs(void);
 #endif

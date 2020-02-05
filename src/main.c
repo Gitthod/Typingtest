@@ -34,7 +34,7 @@ int main(int argc, char** argv)
     int testLength = convertInput(getArgValue("-l"));
     setAttributes(testLength, IRRELEVANT, NOT_APPLICABLE, NOT_APPLICABLE);
     changeTestDir(getArgValue("-d"));
-
+    freeArgs();
     init_sqlite_db();
 
     while (goto_Menu());
