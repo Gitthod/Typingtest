@@ -379,11 +379,11 @@ LOOP_START:
                     forCleanup(cTest->text);
 
                     /* Make the test name to be the hash of its file name. */
-                    cTest->testName = calloc(SHA_DIGEST_LENGTH + 1, 1);
+                    cTest->contentHash = calloc(SHA_DIGEST_LENGTH + 1, 1);
                     /* Need to add a way to retrieve test results from hashes (add sql queries in speed_test_sqlite.c)*/
-                    SHA1((unsigned char *)files[convertToInt], SHA_DIGEST_LENGTH, (unsigned char *)cTest->testName);
+                    SHA1((unsigned char *)files[convertToInt], SHA_DIGEST_LENGTH, (unsigned char *)cTest->contentHash);
 
-                    forCleanup(cTest->testName);
+                    forCleanup(cTest->contentHash);
 
                     /* Copy the file name. */
                     {

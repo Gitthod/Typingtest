@@ -20,6 +20,7 @@ static sqlite3 *db;
 /* -------------------------------------------- Static Function Implementations ------------------------------------- */
 /* ------------------------------------------------------------------------------------------------------------------ */
 
+/* Free sqlite resources. */
 static void deinitSQLite(void)
 {
     sqlite3_close(db);
@@ -52,7 +53,22 @@ int init_sqlite_db(void)
         return 1;
     }
 
-    char *sql = "SELECT name FROM sqlite_master WHERE type='table' AND name='Records';";
+    /* Check whether the table Test_Records exists. */
+    char *sql = "SELECT name FROM sqlite_master WHERE type='table' AND name='Test_Records';";
+    rc = sqlite3_prepare_v2(db, sql, -1, &res, 0);
+
+    if (rc != SQLITE_OK)
+    {
+        asprintf(&err_msg, "Failed to fetch data: %s\n", sqlite3_errmsg(db));
+        dumpRows(err_msg, 0, sh_Attrs->numrows);
+        free(err_msg);
+        sqlite3_close(db);
+
+        return 1;
+    }
+
+    /* Check whether the table Tests exists. */
+    sql = "SELECT name FROM sqlite_master WHERE type='table' AND name='Tests';";
     rc = sqlite3_prepare_v2(db, sql, -1, &res, 0);
 
     if (rc != SQLITE_OK)
@@ -69,8 +85,27 @@ int init_sqlite_db(void)
     sqlite3_finalize(res);
     if (step != SQLITE_ROW)
     {
-        sql =  "CREATE TABLE Records(Id INTEGER PRIMARY KEY, Fingers TEXT,\
-            Length INT, Mistakes INT, Time REAL);";
+        sql =  "CREATE TABLE Tests(filename TEXT, contents TEXT, hash BLOB, PRIMARY KEY(filename, hash));";
+        rc = sqlite3_exec(db, sql, 0, 0, &err_msg);
+
+        if (rc != SQLITE_OK )
+        {
+
+            char *message = 0;
+            asprintf(&message, "SQL error: %s\n", err_msg);
+            dumpRows(message, 0, sh_Attrs->numrows);
+            free(message);
+
+            sqlite3_free(err_msg);
+            sqlite3_close(db);
+
+            return 1;
+        }
+            sqlite3_free(err_msg);
+
+        sql =  "CREATE TABLE Test_Records(filename TEXT, hash BLOB, Length INT, Mistakes INT, Time REAL,\
+                PRIMARY KEY(filename, hash);";
+
         rc = sqlite3_exec(db, sql, 0, 0, &err_msg);
 
         if (rc != SQLITE_OK )
@@ -108,16 +143,54 @@ int callback(void *NotUsed, int argc, char **argv, char **azColName)
     return 0;
 }
 
-int insert(char* Fingers, int Length, int Mistakes, float Time)
+int insert(char *name, char *test, int Length, int Mistakes, float Time, char hash[40])
 {
     char *sql;
     int rc;
     char *err_msg = 0;
+    sqlite3_stmt *res;
 
-    asprintf(&sql, "INSERT INTO Records(Fingers, Length, Mistakes, Time) \
-            VALUES('%s', '%d', '%d', '%f');", Fingers, Length, Mistakes, Time);
+    asprintf(&sql,"EXISTS(SELECT 1 FROM Tests WHERE name=%s AND hash=%s)", name, hash);
+    rc = sqlite3_prepare_v2(db, sql, -1, &res, 0);
+
+    if (rc != SQLITE_OK)
+    {
+        asprintf(&err_msg, "Failed to fetch data: %s\n", sqlite3_errmsg(db));
+        dumpRows(err_msg, 0, sh_Attrs->numrows);
+        free(err_msg);
+        sqlite3_close(db);
+
+        return 1;
+    }
+
+    int step = sqlite3_step(res);
+    sqlite3_finalize(res);
+    /* If the test isn't registered, register it. */
+    if (step != SQLITE_ROW)
+    {
+        asprintf(&sql,"INSERT INTO Tests(filename, contents, hash)\
+                VALUES('%s', '%s', '%s');", name, test, hash);
+        rc = sqlite3_exec(db, sql, 0, 0, &err_msg);
+
+        if (rc != SQLITE_OK )
+        {
+
+            char *message = 0;
+            asprintf(&message, "SQL error: %s\n", err_msg);
+            dumpRows(message, 0, sh_Attrs->numrows);
+            free(message);
+
+            sqlite3_free(err_msg);
+            sqlite3_close(db);
+
+            return 1;
+        }
+            sqlite3_free(err_msg);
+    }
     rc = sqlite3_exec(db, sql, callback, 0, &err_msg);
     free(sql);
+    asprintf(&sql, "INSERT INTO Records(name, Length, Mistakes, Time) \
+            VALUES('%s', '%d', '%d', '%f');", name, Length, Mistakes, Time);
 
     if (rc != SQLITE_OK )
     {

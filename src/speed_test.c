@@ -202,7 +202,8 @@ START:
         dumpRows(message, 0, sh_Attrs->numrows);
         free(message);
 
-        insert(ptr, G_Test_Length, mistakes, result.tv_sec + (float)result.tv_usec / 1000000);
+        /* TODO: Find a more appropriate way to store automatic tests. */
+        insert(ptr, ptr, G_Test_Length, mistakes, test_time, 0);
         asprintf(&message, "\nYou finished in %lu.%06lu seconds \nYou made %d mistakes\nRepeat the test? (y\\n)\n",
                 result.tv_sec, result.tv_usec, mistakes);
         dumpRows(message, 0, sh_Attrs->numrows);
@@ -445,7 +446,7 @@ START:
         }
 
         int test_length = strlen(test);
-        insert(test_name, test_length, mistakes, test_time);
+        insert(test_name, test, test_length, mistakes, test_time, cTest.contentHash);
 
         char *message;
         asprintf(&message, "Your CPM was %.2f", cpm);
@@ -658,7 +659,7 @@ int goto_Menu(void)
     {
         case 'c':
             selectTest();
-            custom_test(cTest.text, cTest.testName);
+            custom_test(cTest.text, cTest.fileName);
 
             return 1;
         case '\r':
@@ -722,9 +723,6 @@ void setAttributes(int testLength, char *testName, char *fileBuffer, char ignore
 
     if (ignoreWhiteSpace)
         skipWhiteSpace = 1;
-
-    if (testName)
-        cTest.testName = testName;
 
     if (fileBuffer)
     {

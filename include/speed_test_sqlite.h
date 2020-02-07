@@ -25,7 +25,7 @@ int get_nmin(char *Fingers, int Length, char no_of_results);
 /*
  * Inserts a result to the sqlite database.
  */
-int insert(char* Fingers, int Length, int Mistakes, float Time);
+int insert(char *name, char *test, int Length, int Mistakes, float Time, char hash[40]);
 
 /*
  * Get the average results for a single test.
