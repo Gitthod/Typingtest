@@ -9,6 +9,7 @@
 /* -------------------------------------------- Static Function Declarations ---------------------------------------- */
 /* ------------------------------------------------------------------------------------------------------------------ */
 static void deinitSQLite(void);
+static char* convertRawToText(char *base, uint32_t size);
 
 /* ------------------------------------------------------------------------------------------------------------------ */
 /* ------------------------------------------------ Static Variables ------------------------------------------------ */
@@ -67,21 +68,35 @@ int init_sqlite_db(void)
         return 1;
     }
 
+    int step = sqlite3_step(res);
+    sqlite3_finalize(res);
+    if (step != SQLITE_ROW)
+    {
+        sql =  "CREATE TABLE Test_Records(filename TEXT, hash TEXT, Length INT, Mistakes INT, Time REAL,\
+                PRIMARY KEY(filename, hash));";
+
+        rc = sqlite3_exec(db, sql, 0, 0, &err_msg);
+
+        if (rc != SQLITE_OK )
+        {
+            char *message = 0;
+            asprintf(&message, "SQL error: %s\n", err_msg);
+            dumpRows(message, 0, sh_Attrs->numrows);
+            free(message);
+
+            sqlite3_free(err_msg);
+            sqlite3_close(db);
+
+            return 1;
+        }
+            sqlite3_free(err_msg);
+    }
+
     /* Check whether the table Tests exists. */
     sql = "SELECT name FROM sqlite_master WHERE type='table' AND name='Tests';";
     rc = sqlite3_prepare_v2(db, sql, -1, &res, 0);
 
-    if (rc != SQLITE_OK)
-    {
-        asprintf(&err_msg, "Failed to fetch data: %s\n", sqlite3_errmsg(db));
-        dumpRows(err_msg, 0, sh_Attrs->numrows);
-        free(err_msg);
-        sqlite3_close(db);
-
-        return 1;
-    }
-
-    int step = sqlite3_step(res);
+    step = sqlite3_step(res);
     sqlite3_finalize(res);
     if (step != SQLITE_ROW)
     {
@@ -90,27 +105,6 @@ int init_sqlite_db(void)
 
         if (rc != SQLITE_OK )
         {
-
-            char *message = 0;
-            asprintf(&message, "SQL error: %s\n", err_msg);
-            dumpRows(message, 0, sh_Attrs->numrows);
-            free(message);
-
-            sqlite3_free(err_msg);
-            sqlite3_close(db);
-
-            return 1;
-        }
-            sqlite3_free(err_msg);
-
-        sql =  "CREATE TABLE Test_Records(filename TEXT, hash BLOB, Length INT, Mistakes INT, Time REAL,\
-                PRIMARY KEY(filename, hash);";
-
-        rc = sqlite3_exec(db, sql, 0, 0, &err_msg);
-
-        if (rc != SQLITE_OK )
-        {
-
             char *message = 0;
             asprintf(&message, "SQL error: %s\n", err_msg);
             dumpRows(message, 0, sh_Attrs->numrows);
@@ -123,6 +117,7 @@ int init_sqlite_db(void)
         }
             sqlite3_free(err_msg);
     }
+
     atexit(deinitSQLite);
     return 0;
 }
@@ -150,7 +145,8 @@ int insert(char *name, char *test, int Length, int Mistakes, float Time, char ha
     char *err_msg = 0;
     sqlite3_stmt *res;
 
-    asprintf(&sql,"EXISTS(SELECT 1 FROM Tests WHERE name=%s AND hash=%s)", name, hash);
+    hash = convertRawToText(hash, 40);
+    asprintf(&sql,"SELECT * FROM Tests WHERE filename='%s' AND hash='%s'", name, hash);
     rc = sqlite3_prepare_v2(db, sql, -1, &res, 0);
 
     if (rc != SQLITE_OK)
@@ -187,10 +183,11 @@ int insert(char *name, char *test, int Length, int Mistakes, float Time, char ha
         }
             sqlite3_free(err_msg);
     }
-    rc = sqlite3_exec(db, sql, callback, 0, &err_msg);
+
     free(sql);
-    asprintf(&sql, "INSERT INTO Records(name, Length, Mistakes, Time) \
+    asprintf(&sql, "INSERT INTO Test_Records(filename, Length, Mistakes, Time) \
             VALUES('%s', '%d', '%d', '%f');", name, Length, Mistakes, Time);
+    rc = sqlite3_exec(db, sql, callback, 0, &err_msg);
 
     if (rc != SQLITE_OK )
     {
@@ -205,10 +202,12 @@ int insert(char *name, char *test, int Length, int Mistakes, float Time, char ha
         return 1;
     }
 
+    free(sql);
+    free(hash);
     return 0;
 }
 
-int get_nmin(char *Fingers, int Length, char no_of_results)
+int get_nmin(char *filename, int Length, char no_of_results)
 {
     int rc;
     char *err_msg = 0;
@@ -217,22 +216,22 @@ int get_nmin(char *Fingers, int Length, char no_of_results)
     /*
      * Check if the test belongs to the default 2finger tests, if it doesn't diregard Length.
      */
-    if (strcmp(Fingers,"op") == 0 ||
-            strcmp(Fingers,"l;") == 0 ||
-            strcmp(Fingers,"./") == 0 ||
-            strcmp(Fingers,"qw") == 0 ||
-            strcmp(Fingers,"as") == 0 ||
-            strcmp(Fingers,"zx") == 0 )
+    if (strcmp(filename,"op") == 0 ||
+            strcmp(filename,"l;") == 0 ||
+            strcmp(filename,"./") == 0 ||
+            strcmp(filename,"qw") == 0 ||
+            strcmp(filename,"as") == 0 ||
+            strcmp(filename,"zx") == 0 )
     {
-        asprintf(&sql, "SELECT Fingers, Length, Mistakes, ROUND(Time, 2) as Time, \
-                ROUND(Length / Time * 60, 2)  as CPM FROM Records WHERE Fingers='%s' AND \
-                Length ='%d' order by Time asc limit %c;", Fingers, Length, no_of_results);
+        asprintf(&sql, "SELECT filename, Length, Mistakes, ROUND(Time, 2) as Time, \
+                ROUND(Length / Time * 60, 2)  as CPM FROM Test_Records WHERE filename='%s' AND \
+                Length ='%d' order by Time asc limit %c;", filename, Length, no_of_results);
     }
     else
     {
-        asprintf(&sql, "SELECT Fingers, Length, Mistakes, ROUND(Time, 2) as Time, \
-                ROUND(Length / Time * 60, 2)  as CPM FROM Records WHERE Fingers='%s'\
-                order by Time asc limit %c;", Fingers, no_of_results);
+        asprintf(&sql, "SELECT filename, Length, Mistakes, ROUND(Time, 2) as Time, \
+                ROUND(Length / Time * 60, 2)  as CPM FROM Test_Records WHERE filename='%s'\
+                order by Time asc limit %c;", filename, no_of_results);
     }
 
     rc = sqlite3_exec(db, sql, callback, 0, &err_msg);
@@ -255,7 +254,7 @@ int get_nmin(char *Fingers, int Length, char no_of_results)
     return 0;
 }
 
-int get_average(char *Fingers, int Length)
+int get_average(char *name, int Length)
 {
     int rc;
     char *err_msg = 0;
@@ -264,22 +263,22 @@ int get_average(char *Fingers, int Length)
     /*
      * Check if the test belongs to the default 2finger tests, if it doesn't diregard Length.
      */
-    if (strcmp(Fingers,"op") == 0 ||
-            strcmp(Fingers,"l;") == 0 ||
-            strcmp(Fingers,"./") == 0 ||
-            strcmp(Fingers,"qw") == 0 ||
-            strcmp(Fingers,"as") == 0 ||
-            strcmp(Fingers,"zx") == 0 )
+    if (strcmp(name,"op") == 0 ||
+        strcmp(name,"l;") == 0 ||
+        strcmp(name,"./") == 0 ||
+        strcmp(name,"qw") == 0 ||
+        strcmp(name,"as") == 0 ||
+        strcmp(name,"zx") == 0 )
     {
-        asprintf(&sql,"SELECT Fingers, Length, ROUND(AVG(Time), 2) AS [Average Time], \
-                ROUND(AVG(Mistakes), 2) AS [Average mistakes per test] FROM Records WHERE FINGERS='%s' \
-                AND Length='%d';", Fingers, Length);
+        asprintf(&sql,"SELECT filename, Length, ROUND(AVG(Time), 2) AS [Average Time], \
+                ROUND(AVG(Mistakes), 2) AS [Average mistakes per test] FROM Test_Records WHERE filename='%s' \
+                AND Length='%d';", name, Length);
     }
     else
     {
-        asprintf(&sql,"SELECT Fingers, Length, ROUND(AVG(Time), 2) AS [Average Time], \
-                ROUND(AVG(Mistakes), 2) AS [Average mistakes per test] FROM Records \
-                WHERE FINGERS='%s';", Fingers);
+        asprintf(&sql,"SELECT filename, Length, ROUND(AVG(Time), 2) AS [Average Time], \
+                ROUND(AVG(Mistakes), 2) AS [Average mistakes per test] FROM Test_Records \
+                WHERE filename='%s';", name);
     }
 
     rc = sqlite3_exec(db, sql, callback, 0, &err_msg);
@@ -301,20 +300,20 @@ int get_average(char *Fingers, int Length)
     return 0;
 }
 
-int get_all_averages(char *Fingers)
+int get_all_averages(char *filename)
 {
     int rc;
     char *err_msg = 0;
     char *sql = 0;
-    if (Fingers)
-        asprintf(&sql,"SELECT Fingers, Length, ROUND(AVG(Time), 2) AS [Average Time], ROUND(AVG(Mistakes), 2) AS\
+    if (filename)
+        asprintf(&sql,"SELECT filename, Length, ROUND(AVG(Time), 2) AS [Average Time], ROUND(AVG(Mistakes), 2) AS\
                 [Average mistakes per test],  ROUND(Length / AVG(Time) * 60, 2) as [Clicks per minute], \
-                ROUND(AVG(Mistakes) / Length * 100, 2) as [Mistakes per 100 clicks] FROM Records \
-                WHERE FINGERS='%s' GROUP BY Length;", Fingers);
+                ROUND(AVG(Mistakes) / Length * 100, 2) as [Mistakes per 100 clicks] FROM Test_Records \
+                WHERE filename='%s' GROUP BY Length;", filename);
     else
-        asprintf(&sql,"SELECT COUNT(Id) as [Tests Taken], Sum(Length) as [Total characters typed], Fingers, \
+        asprintf(&sql,"SELECT COUNT(filename) as [Tests Taken], Sum(Length) as [Total characters typed], filename, \
                 ROUND(Sum(Length) / Sum(Time) * 60, 2) AS [CPM], ROUND(cast(Sum(Mistakes) as FLOAT) /\
-                Sum(Length) * 100, 2) AS [Mistakes per 100 key presses] FROM Records GROUP BY Fingers;");
+                Sum(Length) * 100, 2) AS [Mistakes per 100 key presses] FROM Test_Records GROUP BY filename;");
 
     rc = sqlite3_exec(db, sql, callback, 0, &err_msg);
     free(sql);
@@ -333,4 +332,47 @@ int get_all_averages(char *Fingers)
     }
 
     return 0;
+}
+
+static char* convertRawToText(char *base, uint32_t size)
+{
+    /* Each byte has a maximum value of 255 which is 3 digits therefore for n bytes we need at most 3 * n bytes. */
+    char *result = calloc(size * 3 + 1, 1);
+    uint32_t idx = 0;
+    for (int i = 0; i < size; i++)
+    {
+        if (base[i] > 0)
+        {
+            uint8_t value = base[i];
+            uint8_t digits = 0;
+            uint8_t tIdx = 0;
+
+            while (value)
+            {
+                digits++;
+                value /= 10;
+            }
+
+            /* This will be the idx of the next number. */
+            idx += digits;
+            /* This points to the last digit of the current number. */
+            tIdx = digits - 1;
+
+            value = base[i];
+
+            while (value)
+            {
+                result[idx - digits + tIdx] = value % 10 + '0';
+                value /= 10;
+                tIdx--;
+            }
+        }
+        else
+        {
+            result[idx] = '0';
+            idx++;
+        }
+    }
+
+    return result;
 }
