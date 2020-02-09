@@ -498,10 +498,10 @@ static void browse_DB(void)
     char *menu = "Type 1 to fetch the fastest times\n"
         "Type 2 to browse average times\n"
         "Type 3 to get statistics for all tests\n"
+        "Type 4 to save a test from the database to a file\n"
         "Type x to exit the DB menu\n"
         "##############################################################\n";
 
-    char test_name[20];
     dumpRows(menu, 0, sh_Attrs->numrows);
     setAppMessage("---------------------------------------\n"
                   ">>>>>>>>>>>>>>>>DB MENU<<<<<<<<<<<<<<<<\n"
@@ -510,6 +510,9 @@ static void browse_DB(void)
 
     while (stay)
     {
+        char test_name[255];
+        char destFilename[255] = {};
+        char hash[60] = {};
         disableCursor();
         while (notValidChar(c = l_getchar(), "DB"));
         enableCursor();
@@ -531,8 +534,7 @@ static void browse_DB(void)
                 while ((c = getKey()) < 48 && c > 58);
                 insertChar(c);
 
-                if (get_nmin(test_name, G_Test_Length, c ))
-                    init_sqlite_db();
+                get_nmin(test_name, G_Test_Length, c);
 
                 dumpRows("Press Enter to return", 0, sh_Attrs->numrows);
                 while ((c = getKey()) != '\r')
@@ -556,13 +558,11 @@ static void browse_DB(void)
 
                 if ('n' == c)
                 {
-                    if (get_average(test_name, G_Test_Length))
-                        init_sqlite_db();
+                    get_average(test_name, G_Test_Length);
                 }
                 else
                 {
-                    if (get_all_averages(test_name))
-                        init_sqlite_db();
+                    get_all_averages(test_name);
                 }
 
                 dumpRows("Press Enter to return", 0, sh_Attrs->numrows);
@@ -571,13 +571,51 @@ static void browse_DB(void)
                 break;
 
             case '3':
-                if (get_all_averages(0))
-                    init_sqlite_db();
+                get_all_averages(0);
 
                 dumpRows("Press Enter to return", 0, sh_Attrs->numrows);
                 while ((c = getKey()) != '\r')
                     moveCursor(c);
                 break;
+            case '4':
+                dumpRows("Which test to save?\n", 0, sh_Attrs->numrows);
+
+                while ((c = getKey()) != '\r' && c != ' ')
+                {
+                    insertChar(c);
+                    test_name[cnt++] = c;
+                }
+
+                cnt = 0;
+                if (c == '\r')
+                {
+                    dumpRows("Name of the file to be saved?\n", 0, sh_Attrs->numrows);
+
+                    while ((c = getKey()) != '\r')
+                    {
+                        insertChar(c);
+                        destFilename[cnt++] = c;
+                    }
+                    saveContentToFile(test_name, 0, destFilename);
+                }
+                else
+                {
+                    while ((c = getKey()) != '\r')
+                    {
+                        insertChar(c);
+                        hash[cnt++] = c;
+                    }
+
+                    dumpRows("Name of the file to be saved?\n", 0, sh_Attrs->numrows);
+
+                    while ((c = getKey()) != '\r')
+                    {
+                        insertChar(c);
+                        destFilename[cnt++] = c;
+                    }
+                    saveContentToFile(test_name, hash, destFilename);
+                }
+
 
             case 'x' :
                 stay = 0;
@@ -596,7 +634,7 @@ static int notValidChar(char c, char *id)
 
     while (validChars[idx])
     {
-        if ((c == validChars[idx++]))
+        if (c == validChars[idx++])
             return 0;
     }
 
@@ -605,7 +643,7 @@ static int notValidChar(char c, char *id)
 
 static char *getListFromId(char *id)
 {
-    static char *list[][2] ={{"DB","123x"},
+    static char *list[][2] ={{"DB","1234x"},
         {"Menu","\t\rqbc"} };
 
     for (int i = 0; i < sizeof(list) / sizeof(list[0]); i++)

@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 
 /* ------------------------------------------------------------------------------------------------------------------ */
 /* -------------------------------------------- Static Function Declarations ---------------------------------------- */
@@ -122,7 +123,7 @@ int init_sqlite_db(void)
     return 0;
 }
 
-int callback(void *NotUsed, int argc, char **argv, char **azColName)
+int printResults(void *NotUsed, int argc, char **argv, char **azColName)
 {
     NotUsed = 0;
     for (int i = 0; i < argc; i++)
@@ -187,7 +188,7 @@ int insert(char *name, char *test, int Length, int Mistakes, float Time, char ha
     free(sql);
     asprintf(&sql, "INSERT INTO Test_Records(filename, Length, Mistakes, Time) \
             VALUES('%s', '%d', '%d', '%f');", name, Length, Mistakes, Time);
-    rc = sqlite3_exec(db, sql, callback, 0, &err_msg);
+    rc = sqlite3_exec(db, sql, printResults, 0, &err_msg);
 
     if (rc != SQLITE_OK )
     {
@@ -234,7 +235,7 @@ int get_nmin(char *filename, int Length, char no_of_results)
                 order by Time asc limit %c;", filename, no_of_results);
     }
 
-    rc = sqlite3_exec(db, sql, callback, 0, &err_msg);
+    rc = sqlite3_exec(db, sql, printResults, 0, &err_msg);
     free(sql);
 
     if (rc != SQLITE_OK )
@@ -281,7 +282,7 @@ int get_average(char *name, int Length)
                 WHERE filename='%s';", name);
     }
 
-    rc = sqlite3_exec(db, sql, callback, 0, &err_msg);
+    rc = sqlite3_exec(db, sql, printResults, 0, &err_msg);
     free(sql);
 
     if (rc != SQLITE_OK )
@@ -315,7 +316,7 @@ int get_all_averages(char *filename)
                 ROUND(Sum(Length) / Sum(Time) * 60, 2) AS [CPM], ROUND(cast(Sum(Mistakes) as FLOAT) /\
                 Sum(Length) * 100, 2) AS [Mistakes per 100 key presses] FROM Test_Records GROUP BY filename;");
 
-    rc = sqlite3_exec(db, sql, callback, 0, &err_msg);
+    rc = sqlite3_exec(db, sql, printResults, 0, &err_msg);
     free(sql);
 
     if (rc != SQLITE_OK )
@@ -331,6 +332,72 @@ int get_all_averages(char *filename)
         return 1;
     }
 
+    return 0;
+}
+
+int copyFile(void *destFilename, int argc, char **argv, char **azColName)
+{
+    if (argc > 1)
+    {
+        char *message = "Multiple occurences of the query";
+        dumpRows(message, 0, sh_Attrs->numrows);
+    }
+    else
+    {
+        struct stat buffer;
+        char *message = 0;
+        /* stat returns 0 if the file exists. */
+        if (stat(destFilename, &buffer) == 0)
+        {
+            FILE *fp = fopen(destFilename, "w");
+            fwrite(argv[0], strlen(argv[0]), 1, fp);
+            fclose(fp);
+            asprintf(&message, "The file was saved with filename: %s\n", (char *)destFilename);
+            dumpRows(message, 0, sh_Attrs->numrows);
+            free(message);
+        }
+        else
+        {
+            asprintf(&message, "A file named %s already exist!!\n ", (char*)destFilename);
+            dumpRows(message, 0, sh_Attrs->numrows);
+            free(message);
+            dumpRows("Press Enter to return", 0, sh_Attrs->numrows);
+            while (getKey() != '\r');
+        }
+    }
+
+    return 0;
+}
+
+/* Check if a filename in the current dir exist and it has the same has. */
+/* If a filename exists but has a different hash, save a file with name filename_<shorted different hash initials> .*/
+/* If it doesn't exist save the contents of the file under filename. */
+int saveContentToFile(char *filename, char *hash, char *destFilename)
+{
+    int rc;
+    char *err_msg = 0;
+    char *sql = 0;
+    if (hash)
+        asprintf(&sql,"SELECT contents FROM Tests WHERE filename='%s' AND hash LIKE='%s%%'", filename, hash);
+    else
+        asprintf(&sql,"SELECT contents FROM Tests WHERE filename='%s'", filename);
+
+
+    rc = sqlite3_exec(db, sql, copyFile, destFilename, &err_msg);
+    free(sql);
+
+    if (rc != SQLITE_OK )
+    {
+        char *message = 0;
+        asprintf(&message, "SQL error: %s\n", err_msg);
+        dumpRows(message, 0, sh_Attrs->numrows);
+        free(message);
+
+        sqlite3_free(err_msg);
+        sqlite3_close(db);
+
+        return 1;
+    }
     return 0;
 }
 

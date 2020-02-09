@@ -37,4 +37,11 @@ int get_average(char *Fingers, int Length);
  */
 int get_all_averages(char *Fingers);
 
+/* If hash is null the function will query the database for filename. If there are multiple filenames it will return
+ * with an error. If the filename is unique then it will create a new file if the file destFilename doesn't exist
+ * otherwise it will print the error and return.
+ * If the hash is passed it will be given to the database to match LIKE 'hash%' so only the first unique digits are
+ * really needed. The initial process will be applied also in this situation to save the contents under destFilename.
+ */
+int saveContentToFile(char *filename, char *hash, char *destFilename);
 #endif
