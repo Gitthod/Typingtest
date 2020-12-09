@@ -927,6 +927,18 @@ void insertChar(int c)
     pthread_mutex_unlock(&mutex);
 }
 
+void deleteChar(void)
+{
+    pthread_mutex_lock(&mutex);
+    if (E.cx != 0)
+    {
+        dirty = 1;
+        E.cx--;
+        E.row[E.numrows - 1].size--;
+        updateRow(&E.row[E.numrows - 1]);
+    }
+    pthread_mutex_unlock(&mutex);
+}
 
 void insertRow(int line, char *s, size_t len)
 {

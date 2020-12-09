@@ -131,6 +131,11 @@ int getKey(void);
 void insertChar(int c);
 
 /*
+ * Deletes the last character, does nothing if the row is empty.
+ */
+void deleteChar(void);
+
+/*
  * Updates the position of the cursor when pressing arrow keys
  */
 void moveCursor(int key);

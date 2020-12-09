@@ -524,8 +524,18 @@ static void browse_DB(void)
                 dumpRows("Which test to browse?\n", 0, sh_Attrs->numrows);
                 while ((c = getKey()) != '\r' && cnt < 20)
                 {
-                    insertChar(c);
-                    test_name[cnt++] = c;
+                    if (c == BACKSPACE)
+                    {
+                        deleteChar();
+                        test_name[cnt] = 0;
+                        if (cnt > 0)
+                            cnt--;
+                    }
+                    else
+                    {
+                        insertChar(c);
+                        test_name[cnt++] = c;
+                    }
                 }
 
                 test_name[cnt] = 0;
@@ -546,8 +556,18 @@ static void browse_DB(void)
 
                 while ((c = getKey()) != '\r' && cnt < 20)
                 {
-                    insertChar(c);
-                    test_name[cnt++] = c;
+                    if (c == BACKSPACE)
+                    {
+                        deleteChar();
+                        test_name[cnt] = 0;
+                        if (cnt > 0)
+                            cnt--;
+                    }
+                    else
+                    {
+                        insertChar(c);
+                        test_name[cnt++] = c;
+                    }
                 }
 
                 test_name[cnt] = 0;
@@ -582,8 +602,18 @@ static void browse_DB(void)
 
                 while ((c = getKey()) != '\r' && c != ' ')
                 {
-                    insertChar(c);
-                    test_name[cnt++] = c;
+                    if (c == BACKSPACE)
+                    {
+                        deleteChar();
+                        test_name[cnt] = 0;
+                        if (cnt > 0)
+                            cnt--;
+                    }
+                    else
+                    {
+                        insertChar(c);
+                        test_name[cnt++] = c;
+                    }
                 }
 
                 cnt = 0;
@@ -593,8 +623,18 @@ static void browse_DB(void)
 
                     while ((c = getKey()) != '\r')
                     {
-                        insertChar(c);
-                        destFilename[cnt++] = c;
+                        if (c == BACKSPACE)
+                        {
+                            deleteChar();
+                            destFilename[cnt] = 0;
+                            if (cnt > 0)
+                                cnt--;
+                        }
+                        else
+                        {
+                            insertChar(c);
+                            destFilename[cnt++] = c;
+                        }
                     }
                     saveContentToFile(test_name, 0, destFilename);
                 }
@@ -602,16 +642,36 @@ static void browse_DB(void)
                 {
                     while ((c = getKey()) != '\r')
                     {
-                        insertChar(c);
-                        hash[cnt++] = c;
+                        if (c == BACKSPACE)
+                        {
+                            deleteChar();
+                            hash[cnt] = 0;
+                            if (cnt > 0)
+                                cnt--;
+                        }
+                        else
+                        {
+                            insertChar(c);
+                            hash[cnt++] = c;
+                        }
                     }
 
                     dumpRows("Name of the file to be saved?\n", 0, sh_Attrs->numrows);
 
                     while ((c = getKey()) != '\r')
                     {
-                        insertChar(c);
-                        destFilename[cnt++] = c;
+                        if (c == BACKSPACE)
+                        {
+                            deleteChar();
+                            destFilename[cnt] = 0;
+                            if (cnt > 0)
+                                cnt--;
+                        }
+                        else
+                        {
+                            insertChar(c);
+                            destFilename[cnt++] = c;
+                        }
                     }
                     saveContentToFile(test_name, hash, destFilename);
                 }
