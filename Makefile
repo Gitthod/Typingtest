@@ -9,6 +9,7 @@ SRCDIR := src
 ODIR := obj
 
 TESTDIR := tests
+SAMPLETEST := SampleTest
 
 # Directory to put the executables
 BINDIR := binaries
@@ -47,7 +48,7 @@ $(ODIR) :
 # In this folder the tests should be placed, this folder will not be removed with make clean.
 $(TESTDIR):
 	@$(MKDIR_P) $(TESTDIR)
-	touch $(TESTDIR)/AddMoreTest
+	@echo "This is a sample test!" > $(TESTDIR)/$(SAMPLETEST)
 	@echo Created ./$(TESTDIR) folder
 
 # Make a phony target so that make clean would run unconditionally even if a clean file was created
@@ -58,3 +59,4 @@ clean:
 	@echo Removing compiled files...
 	@rm -fr $(ODIR) $(BINDIR)
 	@echo Files were succesfully removed
+	@rm $(TESTDIR)/$(SAMPLETEST)

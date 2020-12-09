@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <stdbool.h>
 
 /* ------------------------------------------------------------------------------------------------------------------ */
 /* ---------------------------------------------------- Defines ----------------------------------------------------- */
@@ -58,6 +59,10 @@ static cursorStatus moveBrowseCursor(uint32_t min, uint32_t max, int *current, i
  */
 static int filterFiles(const char *fileName);
 
+/*
+ * Check if dirName is empty.
+ */
+static bool isDirEmpty(char *dirName);
 /* ------------------------------------------------------------------------------------------------------------------ */
 /* -------------------------------------------- Static Function Implementations ------------------------------------- */
 /* ------------------------------------------------------------------------------------------------------------------ */
@@ -202,7 +207,12 @@ LOOP_START:
                     stat(dir->d_name, &statbuf);
 
                     if (S_ISDIR(statbuf.st_mode))
-                        type =  "\x1b[36md\x1b[0m";
+                    {
+                        if (false == isDirEmpty(dir->d_name))
+                            type =  "\x1b[36md\x1b[0m"; /* Light blue. */
+                        else
+                            type = "\x1b[31md\x1b[0m"; /* Red. */
+                    }
 
                     asprintf(&message, "%d -> %s [%s]\n", fileCount, dir->d_name, type);
                     dumpRows(message, 0, sh_Attrs->numrows);
@@ -216,6 +226,14 @@ LOOP_START:
         else
         {
             pexit("Directory doesn't exist\n");
+        }
+
+        if (fileCount == 0)
+        {
+            closedir(d);
+            d = opendir("..");
+            chdir("..");
+            goto LOOP_START;
         }
 
         /* Check the choice. */
@@ -429,4 +447,16 @@ LOOP_START:
 void changeTestDir(char *dirName)
 {
     testDir = dirName;
+}
+
+static bool isDirEmpty(char *dirName)
+{
+    uint32_t count = 0;
+    DIR *tmp_d = opendir(dirName);
+    struct dirent *dir;
+    while ((dir = readdir(tmp_d)) != NULL)
+        if (filterFiles(dir->d_name) == PASS)
+            count++;
+    closedir(tmp_d);
+    return count == 0;
 }
