@@ -47,6 +47,7 @@ $(ODIR) :
 # In this folder the tests should be placed, this folder will not be removed with make clean.
 $(TESTDIR):
 	@$(MKDIR_P) $(TESTDIR)
+	touch $(TESTDIR)/AddMoreTest
 	@echo Created ./$(TESTDIR) folder
 
 # Make a phony target so that make clean would run unconditionally even if a clean file was created
