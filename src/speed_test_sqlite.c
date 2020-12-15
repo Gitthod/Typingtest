@@ -369,7 +369,7 @@ int copyFile(void *destFilename, int argc, char **argv, char **azColName)
     return 0;
 }
 
-/* Check if a filename in the current dir exist and it has the same has. */
+/* Check if a filename in the current dir exist and it has the same hash. */
 /* If a filename exists but has a different hash, save a file with name filename_<shorted different hash initials> .*/
 /* If it doesn't exist save the contents of the file under filename. */
 int saveContentToFile(char *filename, char *hash, char *destFilename)

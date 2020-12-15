@@ -246,7 +246,7 @@ LOOP_START:
             rowAppendString(&sh_Attrs->row[sh_Attrs->cy - 1], BROWSE_MARKER, BROWSE_MARKER_SIZE);
             sh_Attrs->cy -= 1;
             setAppMessage("Type a number between 0 - %d, or press Enter to select the test under the cursor.\n"
-                          "Press h to go to the parent dir (../) or l to go to the previous one.\n",
+                          "Press h to go to the parent dir (../) or l to go to the previous one, j/k to move down/up\n",
                           fileCount);
             appendAppMessage("You typed:");
 
