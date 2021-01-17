@@ -1,8 +1,9 @@
+## General description
 This is a game to test your typing speed, it compiles only in linux machines.
 Furthermore its functionality depends on VT100 escape sequences to control the
 screen, so it might not work in some terminals.
 
-DEPENDENCIES:
+## DEPENDENCIES:
 	You need gcc and GNU Make installed to compile this project.
 In Ubuntu you can get both by typing :
 
@@ -14,9 +15,9 @@ so in ubuntu you can type :
 	sudo apt install sqlite3 libsqlite3-dev
 
 
-INSTALLATION:
-	make       To build object and save the executable to binaries directory.
-	make clean Removes obj and binaries directories.
+## INSTALLATION:
+	<b>make</b>       To build object and save the executable to binaries directory.
+	<b>make clean</b> Removes obj and binaries directories.
 
 USAGE:
 	This application has 2 modes. The first mode just tests the typing speed
