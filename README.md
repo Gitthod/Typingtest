@@ -9,10 +9,11 @@ In Ubuntu you can get both by typing :
 
 	sudo apt install build-essential
 
-Additionally you need to have sqlite3 with the development package installed
+Additionally you need to have sqlite3 and opennssl with the development packages installed
 so in ubuntu you can type :
 
 	sudo apt install sqlite3 libsqlite3-dev
+    sudo apt-get install libssl-dev
 
 
 ## INSTALLATION:
