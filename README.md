@@ -17,8 +17,8 @@ so in ubuntu you can type :
 
 
 ## INSTALLATION:
-	<b>make</b>       To build object and save the executable to binaries directory.
-	<b>make clean</b> Removes obj and binaries directories.
+    make        -> To build object and save the executable to binaries directory.
+    make clean  -> Removes obj and binaries directories.
 
 USAGE:
 	This application has 2 modes. The first mode just tests the typing speed
@@ -29,40 +29,40 @@ for example type :
 
 	binaries/2fingers 50
 
-	This starts the program with a limit of 50 characters for this kind of
+<p>This starts the program with a limit of 50 characters for this kind of
 tests. In the main menu type tab or enter to enter this test's menu. You will
 then be prompted to start typing. The time measurement doesn't start unless you
-press a valid button after this prompt.
-	After the prompt you can type (qwaszxopl;./) to start. Subsequently the
+press a valid button after this prompt.</p>
+<p>After the prompt you can type (qwaszxopl;./) to start. Subsequently the
 test expects only the adjacent character (o is adjacent to p and q is adjacent
 to w in a qwerty keyboard) of the previous valid character, so one test would
 be qw repeated or op repeated and so on. The test finishes when you type as
 many characters as the argument you passed (50 in that case) or the default if
-no arguments are given which is 100.
+no arguments are given which is 100.</p>
 
-	The second mode needs a text file and a name so your results can be saved
+<p>The second mode needs a text file and a name so your results can be saved
 with that name in an sqlite database. This name should be different than
 qw, op, as, zx, l; and ./ as these names are reserved for the first mode. You
 can invoke that mode by pressing c in the main menu. After you initiate the
-test the timer starts after you press the first character of the test.
+test the timer starts after you press the first character of the test.</p>
 
 for example type:
 
 	binaries/2fingers README rdm
 
-	To start the program by loading the contents of this file for the custom
+<p>To start the program by loading the contents of this file for the custom
 test and using the name rdm to store the results in the database. Type c in the
-main menu to enter the custom test's menu and start typing what you see.
+main menu to enter the custom test's menu and start typing what you see.</p>
 
-	In both tests you will notice a bar in the bottom left corner which shows
-your typing speed (CPM). This bar changes color depending on your speed.
+<p>In both tests you will notice a bar in the bottom left corner which shows
+your typing speed (CPM). This bar changes color depending on your speed.</p>
 
-	From the main menu you can type b to browse your old results, you can
+<p>From the main menu you can type b to browse your old results, you can
 query for your best times and average times for different tests by following
 the instructions of that menu. All your results are saved automatically after
-you finish a test.
+you finish a test.</p>
 
-	At any moment during a test you can press ctrl-r to restart the test or
+<p>At any moment during a test you can press ctrl-r to restart the test or
 ctrl-b to go back to the main menu. Additionally you can exit the application
-anytime you want by typing ctrl-c or ctrl-q.
+anytime you want by typing ctrl-c or ctrl-q.</p>
 
